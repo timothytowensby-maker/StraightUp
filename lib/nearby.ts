@@ -25,7 +25,7 @@ export function kilometersToMiles(distanceKilometers: number) {
 
 export function formatDistanceMilesFromKilometers(distanceKilometers: number | null | undefined) {
   if (distanceKilometers == null) {
-    return '0.0 miles away';
+    return null;
   }
 
   return `${kilometersToMiles(distanceKilometers).toFixed(1)} miles away`;

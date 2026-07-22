@@ -25,7 +25,7 @@ type CityFeedOptions = {
   city?: string;
 };
 
-function getNearbyStatusMessage(distanceMiles: number) {
+function formatNearbyStatusMessage(distanceMiles: number) {
   return `Showing vibes within ${distanceMiles} miles of your current location.`;
 }
 
@@ -129,7 +129,7 @@ export default function Feed() {
 
   useEffect(() => {
     if (mode === 'nearby' && viewerLocation) {
-      setLocationStatus(getNearbyStatusMessage(distanceMiles));
+      setLocationStatus(formatNearbyStatusMessage(distanceMiles));
     }
   }, [distanceMiles, mode, viewerLocation]);
 
@@ -202,7 +202,7 @@ export default function Feed() {
         setViewerLocation(nextLocation);
         setMode('nearby');
         setLocationSharing(true);
-        setLocationStatus(getNearbyStatusMessage(distanceMiles));
+        setLocationStatus(formatNearbyStatusMessage(distanceMiles));
       } catch (syncError: unknown) {
         setError(syncError instanceof Error ? syncError.message : 'Unable to enable nearby mode');
         await fallbackToCityFeed('We couldn’t refresh your GPS location, so your city feed is still active.');

@@ -1,8 +1,8 @@
 export default function NearbySkeleton() {
   return (
     <div className="space-y-4" aria-hidden="true">
-      {[0, 1, 2].map((item) => (
-        <div key={item} className="card animate-pulse">
+      {[0, 1, 2].map((index) => (
+        <div key={index} className="card animate-pulse">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="h-5 w-32 rounded-full bg-vibe-800" />

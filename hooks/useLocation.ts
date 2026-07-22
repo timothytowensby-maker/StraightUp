@@ -24,7 +24,7 @@ function getLocationErrorDetails(error: GeolocationPositionError | null) {
   if (!error) {
     return {
       code: 'unsupported' as const,
-      message: 'GPS is not supported in this browser. We’ll keep showing your city feed.',
+      message: 'GPS is not supported in this browser. We will keep showing your city feed.',
     };
   }
 
@@ -37,7 +37,7 @@ function getLocationErrorDetails(error: GeolocationPositionError | null) {
     case error.POSITION_UNAVAILABLE:
       return {
         code: 'unavailable' as const,
-        message: 'Your location is currently unavailable. Try refreshing to request GPS again.',
+        message: 'Your location is currently unavailable. Try refreshing your location.',
       };
     case error.TIMEOUT:
       return {
