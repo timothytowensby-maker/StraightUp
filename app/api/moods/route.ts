@@ -13,6 +13,7 @@ const EARTH_RADIUS_METERS = EARTH_RADIUS_KM * 1000;
 const KM_PER_LATITUDE_DEGREE = 110.574;
 // Approximate kilometers per degree of longitude at the equator before latitude scaling is applied.
 const KM_PER_LONGITUDE_DEGREE_AT_EQUATOR = 111.32;
+const ALLOWED_REACTION_EMOJIS = new Set(['🔥', '😂', '❤️', '😎', '💯']);
 
 export async function POST(req: NextRequest) {
   try {
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
         );
 
       moods = await query(
-        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
+        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.reactions, m.boosted, m.created_at, m.expires_at,
                 u.first_name, u.age, u.city,
                 ROUND((geo.distance_meters / 1000)::numeric, 1) AS distance_km,
                 ROUND(geo.relative_x::numeric, 2) AS relative_x,
@@ -137,7 +138,7 @@ export async function GET(req: NextRequest) {
            AND u.latitude BETWEEN $1 - $4 AND $1 + $4
            AND u.longitude BETWEEN $2 - $5 AND $2 + $5
            AND geo.distance_meters <= $6
-         ORDER BY geo.distance_meters ASC, m.created_at DESC
+         ORDER BY m.boosted DESC, geo.distance_meters ASC, m.created_at DESC
          LIMIT $7`,
         [
           latitude,
@@ -154,23 +155,23 @@ export async function GET(req: NextRequest) {
       );
     } else if (city) {
       moods = await query(
-        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
+        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.reactions, m.boosted, m.created_at, m.expires_at,
                 u.first_name, u.age, u.city
          FROM moods m
          JOIN users u ON m.user_id = u.id
          WHERE u.city = $1 AND m.expires_at > NOW() AND m.flagged = FALSE
-         ORDER BY m.created_at DESC
+         ORDER BY m.boosted DESC, m.created_at DESC
          LIMIT $2`,
         [city, limit]
       );
     } else {
       moods = await query(
-        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
+        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.reactions, m.boosted, m.created_at, m.expires_at,
                 u.first_name, u.age, u.city
          FROM moods m
          JOIN users u ON m.user_id = u.id
          WHERE m.expires_at > NOW() AND m.flagged = FALSE AND m.user_id != $1
-         ORDER BY m.created_at DESC
+         ORDER BY m.boosted DESC, m.created_at DESC
          LIMIT $2`,
         [payload.id, limit]
       );
@@ -179,5 +180,37 @@ export async function GET(req: NextRequest) {
     return successResponse({ moods, count: moods.length });
   } catch (error: any) {
     return handleApiError(error, 'Get moods error');
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    authenticateRequest(req);
+    const body = await req.json();
+    const { moodId, emoji } = body;
+
+    if (!moodId || typeof moodId !== 'string') {
+      return errorResponse('moodId is required', 400);
+    }
+
+    if (!emoji || typeof emoji !== 'string' || !ALLOWED_REACTION_EMOJIS.has(emoji)) {
+      return errorResponse('A valid emoji reaction is required', 400);
+    }
+
+    const updatedMood = await queryOne(
+      `UPDATE moods
+       SET reactions = COALESCE(reactions, '{}') || ARRAY[$2]::text[]
+       WHERE id = $1 AND expires_at > NOW()
+       RETURNING reactions`,
+      [moodId, emoji]
+    );
+
+    if (!updatedMood) {
+      return errorResponse('Mood not found or expired', 404);
+    }
+
+    return successResponse({ success: true, reactions: updatedMood.reactions || [] });
+  } catch (error: any) {
+    return handleApiError(error, 'React to mood error');
   }
 }

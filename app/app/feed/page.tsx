@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import BoostButton from '@/components/BoostButton';
 import NearbyDistanceSelector from '@/components/NearbyDistanceSelector';
 import NearbyMoodMap from '@/components/NearbyMoodMap';
 import NearbySkeleton from '@/components/NearbySkeleton';
+import { VibeCard } from '@/components/VibeCard';
 import { useLocation, type LocationCoords } from '@/hooks/useLocation';
 import { useNearbyFeed } from '@/hooks/useNearbyFeed';
 import {
@@ -17,6 +19,7 @@ function getStoredToken() {
 }
 
 type ViewerProfile = {
+  first_name?: string;
   city: string;
   share_location?: boolean;
 };
@@ -43,6 +46,8 @@ export default function Feed() {
   const [locationSharing, setLocationSharing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Using your city feed.');
   const [selectedMoodId, setSelectedMoodId] = useState<string | undefined>(undefined);
+  const [viewerName, setViewerName] = useState('You');
+  const [latestPostedMood, setLatestPostedMood] = useState<Mood | null>(null);
 
   const {
     coords,
@@ -112,6 +117,7 @@ export default function Feed() {
       const profile = (await response.json()) as ViewerProfile;
       const nextCity = profile.city || '';
 
+      setViewerName(profile.first_name || 'You');
       setCityFilter(nextCity);
       setLocationSharing(Boolean(profile.share_location));
       setLocationStatus(nextCity ? `Using ${nextCity} as your fallback city feed.` : 'Using the global feed.');
@@ -250,6 +256,7 @@ export default function Feed() {
       const data = await response.json();
       if (response.ok) {
         setMoodText('');
+        setLatestPostedMood(data as Mood);
         await refreshCurrentFeed();
       } else {
         setError(data.error);
@@ -450,6 +457,37 @@ export default function Feed() {
             </button>
           </div>
         </form>
+
+        {latestPostedMood && (
+          <div className="mt-6 border-t border-vibe-800 pt-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-vibe-100">Latest vibe</h3>
+                <p className="text-sm text-vibe-400">Boost it to keep it at the top of the feed.</p>
+              </div>
+              <BoostButton
+                vibeId={latestPostedMood.id}
+                boosted={Boolean(latestPostedMood.boosted)}
+                onBoosted={() => {
+                  setLatestPostedMood((currentMood) =>
+                    currentMood ? { ...currentMood, boosted: true } : currentMood
+                  );
+                }}
+              />
+            </div>
+            <VibeCard
+              moodId={latestPostedMood.id}
+              text={latestPostedMood.text}
+              vibe={latestPostedMood.vibe}
+              userName={viewerName}
+              tags={latestPostedMood.tags}
+              reactions={latestPostedMood.reactions}
+              boosted={latestPostedMood.boosted}
+              createdAt={latestPostedMood.created_at}
+              showReactions={false}
+            />
+          </div>
+        )}
       </div>
 
       {pageError && (
@@ -478,39 +516,26 @@ export default function Feed() {
           </div>
         ) : (
           displayedMoods.map((mood) => {
-            const distanceAway = mode === 'nearby' ? formatDistanceMilesFromKilometers(mood.distance_km) : null;
+            const distanceLabel = mode === 'nearby' ? formatDistanceMilesFromKilometers(mood.distance_km) : null;
 
             return (
-              <div key={mood.id} className="card">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-bold text-lg">{mood.first_name}, {mood.age}</h3>
-                    <p className="text-sm text-vibe-400">{mood.city}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="badge">{mood.vibe}</span>
-                    {distanceAway && <span className="text-xs text-vibe-400">{distanceAway}</span>}
-                  </div>
-                </div>
-                <p className="text-vibe-100 mb-4">{mood.text}</p>
-                {mood.tags && mood.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {mood.tags.map((tag) => (
-                      <span key={tag} className="text-xs bg-vibe-700 px-2 py-1 rounded">
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    void handleResonate(mood.id);
-                  }}
-                  className="btn btn-secondary w-full"
-                >
-                  ✨ Resonate
-                </button>
-              </div>
+              <VibeCard
+                key={mood.id}
+                moodId={mood.id}
+                text={mood.text}
+                vibe={mood.vibe}
+                userName={mood.first_name || 'Unknown'}
+                userAge={mood.age}
+                userCity={mood.city}
+                tags={mood.tags}
+                reactions={mood.reactions}
+                boosted={Boolean(mood.boosted)}
+                createdAt={mood.created_at}
+                distanceLabel={distanceLabel}
+                onResonate={() => {
+                  void handleResonate(mood.id);
+                }}
+              />
             );
           })
         )}
