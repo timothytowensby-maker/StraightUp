@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
-import { query, queryOne } from '@/lib/db';
+import { queryOne } from '@/lib/db';
 
 // Limit rapid location writes to reduce abuse and unnecessary database churn.
 const LOCATION_UPDATE_COOLDOWN_MS = 15000;
@@ -36,38 +36,34 @@ export async function PUT(req: NextRequest) {
     }
 
     if (!share_location) {
-      await query(
+      const updatedUser = await queryOne(
         `UPDATE users
          SET share_location = FALSE, location_updated_at = NOW(), updated_at = NOW()
-         WHERE id = $1`,
+         WHERE id = $1
+         RETURNING share_location, location_updated_at`,
         [payload.id]
       );
 
-      return successResponse({
-        share_location: false,
-        location_updated_at: new Date().toISOString(),
-      });
+      return successResponse(updatedUser);
     }
 
     if (!isValidCoordinate(latitude, -90, 90) || !isValidCoordinate(longitude, -180, 180)) {
       return errorResponse('Valid latitude and longitude are required when sharing location', 400);
     }
 
-    await query(
+    const updatedUser = await queryOne(
       `UPDATE users
        SET latitude = $1,
            longitude = $2,
            share_location = TRUE,
            location_updated_at = NOW(),
            updated_at = NOW()
-       WHERE id = $3`,
+       WHERE id = $3
+       RETURNING share_location, location_updated_at`,
       [latitude, longitude, payload.id]
     );
 
-    return successResponse({
-      share_location: true,
-      location_updated_at: new Date().toISOString(),
-    });
+    return successResponse(updatedUser);
   } catch (error) {
     return handleApiError(error, 'Update location error');
   }

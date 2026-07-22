@@ -275,7 +275,7 @@ export default function Feed() {
             ? 'GPS permission denied. Falling back to your city feed.'
             : geoError.code === geoError.TIMEOUT
               ? 'GPS request timed out. Falling back to your city feed.'
-              : `Unable to read your GPS location: ${geoError.message}`;
+              : 'Unable to read your GPS location. Falling back to your city feed.';
 
         setLocationStatus(locationErrorMessage);
         void fetchMoods({ mode: 'city', city: cityFilter });

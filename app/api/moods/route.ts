@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
         radiusKm /
         Math.max(
           Math.cos((latitude * Math.PI) / 180) * KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
-          1
+          0.1
         );
 
       moods = await query(

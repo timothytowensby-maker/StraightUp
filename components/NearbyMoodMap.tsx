@@ -81,7 +81,7 @@ export default function NearbyMoodMap({
                 vibeMarkerClasses[mood.vibe]
               } ${isActive ? 'scale-110 ring-4 ring-vibe-300/40' : ''}`}
               style={{ left: `${left}%`, top: `${top}%` }}
-              title={`${mood.first_name ?? 'Nearby'} • ${mood.distance_km ?? 0} km away`}
+              title={`${mood.first_name ?? 'Unknown user'} • ${mood.distance_km ?? 0} km away`}
             >
               {(mood.first_name ?? '?').slice(0, 1).toUpperCase()}
             </button>
