@@ -109,6 +109,7 @@ export default function JokesPage() {
         !event.altKey &&
         !event.ctrlKey &&
         !event.metaKey &&
+        !(event.target instanceof HTMLElement && event.target.isContentEditable) &&
         document.activeElement === document.body &&
         !(event.target instanceof HTMLInputElement) &&
         !(event.target instanceof HTMLTextAreaElement)

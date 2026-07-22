@@ -163,7 +163,7 @@ export async function getRandomJokeForUser(userId: string, category?: string | n
   const searchParams = new URLSearchParams();
   searchParams.set('type', 'single,twopart');
   if (safeOnly) {
-    searchParams.set('safe-mode', '');
+    searchParams.set('safe-mode', 'true');
   }
 
   const url = `${JOKE_API_BASE}/${categorySegment}?${searchParams.toString()}`;
