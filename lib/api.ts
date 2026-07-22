@@ -23,7 +23,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
 
 export async function apiCall<T>(
   url: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
   body?: any
 ): Promise<T> {
   const response = await fetchWithAuth(url, {

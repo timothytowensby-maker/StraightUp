@@ -23,6 +23,8 @@ export interface Mood {
   text: string;
   vibe: Vibe;
   tags: string[];
+  reactions?: string[];
+  boosted?: boolean;
   created_at: string;
   expires_at: string;
   moderated: boolean;
