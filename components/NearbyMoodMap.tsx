@@ -12,6 +12,7 @@ const vibeMarkerClasses: Record<Vibe, string> = {
   chaotic: 'bg-purple-500 text-white',
 };
 
+// Keep markers inside the visible ring while still using most of the card for relative distance.
 const MAX_MAP_OFFSET_PERCENT = 42;
 
 type NearbyMoodMapProps = {

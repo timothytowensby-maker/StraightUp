@@ -2,8 +2,27 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from './types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key-change-in-production';
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
+const JWT_SECRET: jwt.Secret = process.env.JWT_SECRET || 'fallback-secret-key-change-in-production';
+type JwtExpiryString = `${number}${'ms' | 's' | 'm' | 'h' | 'd' | 'w' | 'y'}`;
+
+function getJwtExpiry(value?: string): jwt.SignOptions['expiresIn'] {
+  if (!value) {
+    return '7d';
+  }
+
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue)) {
+    return numericValue;
+  }
+
+  if (/^\d+(ms|s|m|h|d|w|y)$/.test(value)) {
+    return value as JwtExpiryString;
+  }
+
+  return '7d';
+}
+
+const JWT_EXPIRY = getJwtExpiry(process.env.JWT_EXPIRY);
 
 if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
   console.warn('⚠️ JWT_SECRET not set in production!');
@@ -34,8 +53,8 @@ export function generateToken(user: User): string {
         email: user.email,
         name: user.first_name,
       },
-      JWT_SECRET as jwt.Secret,
-      { expiresIn: JWT_EXPIRY as jwt.SignOptions['expiresIn'] }
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRY }
     );
   } catch (error) {
     console.error('Token generation error:', error);
@@ -45,7 +64,7 @@ export function generateToken(user: User): string {
 
 export function verifyToken(token: string): any {
   try {
-    return jwt.verify(token, JWT_SECRET as jwt.Secret);
+    return jwt.verify(token, JWT_SECRET);
   } catch (error) {
     console.error('Token verification error:', error);
     return null;

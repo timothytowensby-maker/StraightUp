@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import NearbyMoodMap from '@/components/NearbyMoodMap';
 import { Mood } from '@/lib/types';
 
+// Reuse a recent GPS reading for up to one minute to reduce repeat permission prompts and wait time.
 const GPS_CACHE_MAX_AGE_MS = 60000;
+// Cap GPS lookup time at ten seconds so nearby mode can fall back quickly when location is unavailable.
 const GPS_REQUEST_TIMEOUT_MS = 10000;
 
 function getStoredToken() {

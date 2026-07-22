@@ -5,8 +5,11 @@ import { classifyMood, moderateContent } from '@/lib/ai';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
+// WGS84 mean Earth radius used for spherical distance calculations.
 const EARTH_RADIUS_KM = 6371;
+// Approximate kilometers per degree of latitude.
 const KM_PER_LATITUDE_DEGREE = 110.574;
+// Approximate kilometers per degree of longitude at the equator before latitude scaling is applied.
 const KM_PER_LONGITUDE_DEGREE_AT_EQUATOR = 111.32;
 
 export async function POST(req: NextRequest) {
@@ -89,7 +92,7 @@ export async function GET(req: NextRequest) {
          FROM moods m
          JOIN users u ON m.user_id = u.id
          CROSS JOIN LATERAL (
-           SELECT ${EARTH_RADIUS_KM} * ACOS(
+           SELECT $8 * ACOS(
                     LEAST(
                       1,
                       GREATEST(
@@ -99,8 +102,8 @@ export async function GET(req: NextRequest) {
                       )
                     )
                   ) AS distance_km,
-                  ((u.longitude - $2) * ${KM_PER_LONGITUDE_DEGREE_AT_EQUATOR} * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
-                  ((u.latitude - $1) * ${KM_PER_LATITUDE_DEGREE}) AS relative_y
+                  ((u.longitude - $2) * $9 * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
+                  ((u.latitude - $1) * $10) AS relative_y
          ) geo
          WHERE m.expires_at > NOW()
            AND m.flagged = FALSE
@@ -113,7 +116,18 @@ export async function GET(req: NextRequest) {
            AND geo.distance_km <= $6
          ORDER BY geo.distance_km ASC, m.created_at DESC
          LIMIT $7`,
-        [latitude, longitude, payload.id, latitudeDelta, longitudeDelta, radiusKm, limit]
+        [
+          latitude,
+          longitude,
+          payload.id,
+          latitudeDelta,
+          longitudeDelta,
+          radiusKm,
+          limit,
+          EARTH_RADIUS_KM,
+          KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
+          KM_PER_LATITUDE_DEGREE,
+        ]
       );
     } else if (city) {
       moods = await query(

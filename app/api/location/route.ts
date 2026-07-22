@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
 import { query, queryOne } from '@/lib/db';
 
+// Limit rapid location writes to reduce abuse and unnecessary database churn.
 const LOCATION_UPDATE_COOLDOWN_MS = 15000;
 
 function isValidCoordinate(value: unknown, min: number, max: number) {
