@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { formatJoke } from '@/lib/joke-utils';
 
 interface JokeShareProps {
@@ -9,15 +10,24 @@ interface JokeShareProps {
 }
 
 export function JokeShare({ setup, delivery, joke }: JokeShareProps) {
+  const [status, setStatus] = useState('');
   const text = setup && delivery ? `${formatJoke(setup)}\n${formatJoke(delivery)}` : formatJoke(joke || '');
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Copied');
+    } catch {
+      setStatus('Copy failed');
+    }
   };
 
   return (
-    <button onClick={handleCopy} className="btn btn-outline text-sm">
-      📋 Copy joke
-    </button>
+    <div className="flex items-center gap-2">
+      <button onClick={handleCopy} className="btn btn-outline text-sm">
+        📋 Copy joke
+      </button>
+      {status ? <span className="text-xs text-vibe-300">{status}</span> : null}
+    </div>
   );
 }

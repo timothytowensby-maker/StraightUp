@@ -28,6 +28,7 @@ export default function JokesPage() {
   const [loading, setLoading] = useState(true);
   const [reactionPending, setReactionPending] = useState(false);
   const [error, setError] = useState('');
+  const [liveMessage, setLiveMessage] = useState('');
 
   const cachedJoke = useMemo(() => {
     if (typeof window === 'undefined') return null;
@@ -97,6 +98,7 @@ export default function JokesPage() {
 
   useEffect(() => {
     if (!joke) return;
+    setLiveMessage(`Loaded ${joke.category} joke`);
     prefetchNextJoke(selectedCategory);
   }, [joke, prefetchNextJoke, selectedCategory]);
 
@@ -170,6 +172,7 @@ export default function JokesPage() {
         </div>
       ) : null}
 
+      <div className="sr-only" aria-live="polite">{liveMessage}</div>
       <p className="text-sm text-vibe-400">Tip: press spacebar for a new joke.</p>
     </div>
   );

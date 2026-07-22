@@ -19,7 +19,7 @@ type JokeApiResponse = {
   message?: string;
 };
 
-function sleep(ms: number) {
+function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -60,7 +60,7 @@ async function fetchWithRetry(url: string, retries = 3): Promise<JokeApiResponse
       if (attempt >= retries) {
         throw error;
       }
-      await sleep(waitMs);
+      await delay(waitMs);
       waitMs *= 2;
     }
   }
@@ -88,7 +88,7 @@ function toJokePayload(payload: JokeApiResponse, requestedCategory: string): Jok
 async function saveJokeToCache(joke: JokePayload) {
   await query(
     `INSERT INTO jokes_cache (external_id, category, joke_type, setup, delivery, joke, safe, source, fetched_at, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW() + INTERVAL '${CACHE_TTL_MINUTES} minutes')
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW() + ($9 * INTERVAL '1 minute'))
      ON CONFLICT (external_id)
      DO UPDATE SET
        category = EXCLUDED.category,
@@ -99,8 +99,8 @@ async function saveJokeToCache(joke: JokePayload) {
        safe = EXCLUDED.safe,
        source = EXCLUDED.source,
        fetched_at = NOW(),
-       expires_at = NOW() + INTERVAL '${CACHE_TTL_MINUTES} minutes'`,
-    [joke.external_id, joke.category, joke.type, joke.setup, joke.delivery, joke.joke, joke.safe, joke.source]
+       expires_at = NOW() + ($9 * INTERVAL '1 minute')`,
+    [joke.external_id, joke.category, joke.type, joke.setup, joke.delivery, joke.joke, joke.safe, joke.source, CACHE_TTL_MINUTES]
   );
 }
 
