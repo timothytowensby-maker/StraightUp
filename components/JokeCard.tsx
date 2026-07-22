@@ -26,7 +26,7 @@ export function JokeCard({ joke }: JokeCardProps) {
       {gif && (
         <Image
           src={gif}
-          alt={`${joke.category} joke reaction`}
+          alt=""
           width={800}
           height={320}
           loading="lazy"

@@ -52,6 +52,15 @@ export default function JokesPage() {
     setCategories(response.categories);
   }, []);
 
+  const prefetchNextJoke = useCallback(async (category = selectedCategory) => {
+    try {
+      const response = await apiCall<JokeResponse>(`/api/jokes/random?category=${encodeURIComponent(category)}`);
+      setPrefetchJoke(response.joke);
+    } catch {
+      setPrefetchJoke(null);
+    }
+  }, [selectedCategory]);
+
   const fetchJoke = useCallback(async (category = selectedCategory, usePrefetched = false) => {
     setLoading(true);
     setError('');
@@ -64,6 +73,7 @@ export default function JokesPage() {
         const response = await apiCall<JokeResponse>(`/api/jokes/random?category=${encodeURIComponent(category)}`);
         setJoke(response.joke);
         localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ joke: response.joke, timestamp: Date.now() }));
+        prefetchNextJoke(category);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load joke');
@@ -73,16 +83,7 @@ export default function JokesPage() {
     } finally {
       setLoading(false);
     }
-  }, [cachedJoke, prefetchJoke, selectedCategory]);
-
-  const prefetchNextJoke = useCallback(async (category = selectedCategory) => {
-    try {
-      const response = await apiCall<JokeResponse>(`/api/jokes/random?category=${encodeURIComponent(category)}`);
-      setPrefetchJoke(response.joke);
-    } catch {
-      setPrefetchJoke(null);
-    }
-  }, [selectedCategory]);
+  }, [cachedJoke, prefetchJoke, prefetchNextJoke, selectedCategory]);
 
   useEffect(() => {
     fetchCategories();
@@ -99,12 +100,19 @@ export default function JokesPage() {
   useEffect(() => {
     if (!joke) return;
     setLiveMessage(`Loaded ${joke.category} joke`);
-    prefetchNextJoke(selectedCategory);
-  }, [joke, prefetchNextJoke, selectedCategory]);
+  }, [joke]);
 
   useEffect(() => {
     const onSpace = (event: KeyboardEvent) => {
-      if (event.code === 'Space' && !(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) {
+      if (
+        event.code === 'Space' &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        document.activeElement === document.body &&
+        !(event.target instanceof HTMLInputElement) &&
+        !(event.target instanceof HTMLTextAreaElement)
+      ) {
         event.preventDefault();
         fetchJoke(selectedCategory, true);
       }

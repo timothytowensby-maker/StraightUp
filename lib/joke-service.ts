@@ -69,9 +69,13 @@ async function fetchWithRetry(url: string, retries = 3): Promise<JokeApiResponse
 }
 
 function toJokePayload(payload: JokeApiResponse, requestedCategory: string): JokePayload {
+  if (typeof payload.id !== 'number') {
+    throw new Error('JokeAPI returned an invalid joke id');
+  }
+
   const category = normalizeCategory(payload.category || requestedCategory);
   const joke: JokePayload = {
-    external_id: String(payload.id || ''),
+    external_id: String(payload.id),
     category,
     type: payload.type === 'twopart' ? 'twopart' : 'single',
     setup: formatJoke(payload.setup || null) || null,
