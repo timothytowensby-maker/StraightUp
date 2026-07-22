@@ -15,8 +15,8 @@ export type LocationErrorCode =
   | 'unknown'
   | null;
 
-const GPS_CACHE_MAX_AGE_MS = 60000;
-const GPS_REQUEST_TIMEOUT_MS = 10000;
+const GPS_CACHE_MAX_AGE_MILLISECONDS = 60000;
+const GPS_REQUEST_TIMEOUT_MILLISECONDS = 10000;
 
 function getLocationErrorDetails(error: GeolocationPositionError | null) {
   if (!error) {
@@ -95,8 +95,8 @@ export function useLocation() {
         },
         {
           enableHighAccuracy: true,
-          timeout: GPS_REQUEST_TIMEOUT_MS,
-          maximumAge: GPS_CACHE_MAX_AGE_MS,
+          timeout: GPS_REQUEST_TIMEOUT_MILLISECONDS,
+          maximumAge: GPS_CACHE_MAX_AGE_MILLISECONDS,
         }
       );
     });

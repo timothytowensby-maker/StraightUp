@@ -477,7 +477,7 @@ export default function Feed() {
         ) : (
           displayedMoods.map((mood) => {
             const distanceAway =
-              mode === 'nearby' && mood.distance_km !== null && mood.distance_km !== undefined
+              mode === 'nearby' && mood.distance_km != null
                 ? `${kilometersToMiles(mood.distance_km).toFixed(1)} miles away`
                 : null;
 

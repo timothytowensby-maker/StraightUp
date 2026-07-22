@@ -42,6 +42,8 @@ export function parseNearbyDistanceMiles(value: string | null) {
     return numericValue;
   }
 
+  // When the request sends meters instead of miles, map only the exact supported meter values back to
+  // their matching mile options so the server does not accept arbitrary radii.
   const matchedDistance = ALLOWED_NEARBY_DISTANCE_MILES.find(
     (distanceMiles) => Math.abs(numericValue - milesToMeters(distanceMiles)) <= DISTANCE_MATCH_EPSILON
   );

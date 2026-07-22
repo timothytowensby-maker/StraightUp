@@ -66,6 +66,8 @@ export async function GET(req: NextRequest) {
     const city = searchParams.get('city');
     const nearby = searchParams.get('nearby') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    // Keep the previous kilometer parameter for compatibility while newer nearby clients send
+    // the sanitized `distance` parameter in miles/meters.
     const legacyRadiusKm = parseInt(searchParams.get('radius_km') || '25', 10);
     const hasDistanceParam = searchParams.has('distance');
     const distanceMiles = parseNearbyDistanceMiles(searchParams.get('distance'));
