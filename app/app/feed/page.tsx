@@ -147,7 +147,7 @@ export default function Feed() {
 
   const feedLoading = mode === 'nearby' ? nearbyFeed.isLoading : loading;
   const pageError = error || (mode === 'nearby' ? nearbyFeed.error : '');
-  const isRefreshingLocation = locationLoading || locationUpdating;
+  const isLocationRequestInProgress = locationLoading || locationUpdating;
 
   useEffect(() => {
     setSelectedMoodId(displayedMoods[0]?.id);
@@ -321,7 +321,6 @@ export default function Feed() {
 
   const handlePauseLocation = async () => {
     if (!viewerLocation) {
-      setViewerLocation(null);
       setLocationSharing(false);
       setLocationStatus('Location sharing paused. Using your city feed.');
       await fetchCityMoods({ city: cityFilter });
@@ -357,9 +356,9 @@ export default function Feed() {
                 void handleEnableNearby();
               }}
               className="btn btn-primary"
-              disabled={isRefreshingLocation}
+              disabled={isLocationRequestInProgress}
             >
-              {isRefreshingLocation && mode !== 'nearby' ? 'Locating...' : 'Use GPS nearby'}
+              {isLocationRequestInProgress && mode !== 'nearby' ? 'Locating...' : 'Use GPS nearby'}
             </button>
             <button
               type="button"
@@ -367,9 +366,9 @@ export default function Feed() {
                 void handleRefreshLocation();
               }}
               className="btn btn-secondary"
-              disabled={isRefreshingLocation}
+              disabled={isLocationRequestInProgress}
             >
-              {isRefreshingLocation && mode === 'nearby' ? 'Refreshing...' : 'Refresh Location'}
+              {isLocationRequestInProgress && mode === 'nearby' ? 'Refreshing...' : 'Refresh Location'}
             </button>
             <button
               type="button"

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchWithAuth } from '@/lib/api';
 import {
   DEFAULT_NEARBY_DISTANCE_MILES,
-  milesToMeters,
+  milesToQueryMeters,
   normalizeNearbyDistanceMiles,
 } from '@/lib/nearby';
 import { Mood } from '@/lib/types';
@@ -20,7 +20,7 @@ function buildNearbyRequestKey(coords: LocationCoords, distanceMiles: number) {
     nearby: 'true',
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
-    distance: String(milesToMeters(distanceMiles)),
+    distance: String(milesToQueryMeters(distanceMiles)),
   });
 
   return `/api/moods?${params.toString()}`;

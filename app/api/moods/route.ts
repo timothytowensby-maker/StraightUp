@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
 import { classifyMood, moderateContent } from '@/lib/ai';
-import { milesToKilometers, milesToMeters, parseNearbyDistanceMiles } from '@/lib/nearby';
+import { milesToKilometers, milesToQueryMeters, parseNearbyDistanceMiles } from '@/lib/nearby';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
@@ -71,12 +71,16 @@ export async function GET(req: NextRequest) {
     const legacyRadiusKm = parseInt(searchParams.get('radius_km') || '25', 10);
     const hasDistanceParam = searchParams.has('distance');
     const distanceMiles = parseNearbyDistanceMiles(searchParams.get('distance'));
-    const radiusKm = hasDistanceParam
-      ? milesToKilometers(distanceMiles)
-      : Number.isFinite(legacyRadiusKm)
-        ? Math.min(Math.max(legacyRadiusKm, 1), 100)
-        : 25;
-    const maxDistanceMeters = hasDistanceParam ? milesToMeters(distanceMiles) : radiusKm * 1000;
+    let radiusKm = 25;
+    let maxDistanceMeters = radiusKm * 1000;
+
+    if (hasDistanceParam) {
+      radiusKm = milesToKilometers(distanceMiles);
+      maxDistanceMeters = milesToQueryMeters(distanceMiles);
+    } else if (Number.isFinite(legacyRadiusKm)) {
+      radiusKm = Math.min(Math.max(legacyRadiusKm, 1), 100);
+      maxDistanceMeters = radiusKm * 1000;
+    }
 
     let moods;
     if (nearby) {
