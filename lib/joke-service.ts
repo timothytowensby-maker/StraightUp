@@ -1,9 +1,9 @@
 import { query, queryOne } from './db';
 import { Vibe } from './types';
-import { JokePayload, detectJokeType, formatJoke, getSuggestionsByVibe } from './joke-utils';
+import { JOKE_CACHE_TTL_MINUTES, JokePayload, detectJokeType, formatJoke, getSuggestionsByVibe } from './joke-utils';
 
 const JOKE_API_BASE = 'https://v2.jokeapi.dev/joke';
-const CACHE_TTL_MINUTES = 5;
+const CACHE_TTL_IN_MINUTES = JOKE_CACHE_TTL_MINUTES;
 
 export const JOKE_CATEGORIES = ['Any', 'Programming', 'Misc', 'Pun', 'Spooky', 'Christmas', 'Dark'] as const;
 
@@ -81,7 +81,7 @@ function toJokePayload(payload: JokeApiResponse, requestedCategory: string): Jok
     setup: formatJoke(payload.setup || null) || null,
     delivery: formatJoke(payload.delivery || null) || null,
     joke: formatJoke(payload.joke || null) || null,
-    safe: payload.safe !== false,
+    safe: payload.safe === true,
     source: 'jokeapi',
   };
 
@@ -104,7 +104,7 @@ async function saveJokeToCache(joke: JokePayload) {
        source = EXCLUDED.source,
        fetched_at = NOW(),
        expires_at = NOW() + ($9 * INTERVAL '1 minute')`,
-    [joke.external_id, joke.category, joke.type, joke.setup, joke.delivery, joke.joke, joke.safe, joke.source, CACHE_TTL_MINUTES]
+    [joke.external_id, joke.category, joke.type, joke.setup, joke.delivery, joke.joke, joke.safe, joke.source, CACHE_TTL_IN_MINUTES]
   );
 }
 

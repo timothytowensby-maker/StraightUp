@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { apiCall } from '@/lib/api';
-import { JokePayload } from '@/lib/joke-utils';
+import { JOKE_CACHE_TTL_MS, JokePayload } from '@/lib/joke-utils';
 import { JokeCard } from '@/components/JokeCard';
 import { JokeLoader } from '@/components/JokeLoader';
 import { JokeReaction } from '@/components/JokeReaction';
@@ -11,7 +11,6 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { JokeShare } from '@/components/JokeShare';
 
 const LOCAL_CACHE_KEY = 'straightup:joke-cache';
-const LOCAL_CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface JokeResponse {
   joke: JokePayload;
@@ -22,13 +21,13 @@ interface JokeResponse {
 
 export default function JokesPage() {
   const [joke, setJoke] = useState<JokePayload | null>(null);
-  const [prefetchJoke, setPrefetchJoke] = useState<JokePayload | null>(null);
   const [categories, setCategories] = useState<Array<{ name: string; suggested?: boolean }>>([]);
   const [selectedCategory, setSelectedCategory] = useState('Any');
   const [loading, setLoading] = useState(true);
   const [reactionPending, setReactionPending] = useState(false);
   const [error, setError] = useState('');
   const [liveMessage, setLiveMessage] = useState('');
+  const prefetchJokeRef = useRef<JokePayload | null>(null);
 
   const cachedJoke = useMemo(() => {
     if (typeof window === 'undefined') return null;
@@ -37,7 +36,7 @@ export default function JokesPage() {
 
     try {
       const parsed = JSON.parse(raw);
-      if (Date.now() - parsed.timestamp > LOCAL_CACHE_TTL_MS) {
+      if (Date.now() - parsed.timestamp > JOKE_CACHE_TTL_MS) {
         localStorage.removeItem(LOCAL_CACHE_KEY);
         return null;
       }
@@ -52,23 +51,23 @@ export default function JokesPage() {
     setCategories(response.categories);
   }, []);
 
-  const prefetchNextJoke = useCallback(async (category = selectedCategory) => {
+  const prefetchNextJoke = useCallback(async (category: string) => {
     try {
       const response = await apiCall<JokeResponse>(`/api/jokes/random?category=${encodeURIComponent(category)}`);
-      setPrefetchJoke(response.joke);
+      prefetchJokeRef.current = response.joke;
     } catch {
-      setPrefetchJoke(null);
+      prefetchJokeRef.current = null;
     }
-  }, [selectedCategory]);
+  }, []);
 
-  const fetchJoke = useCallback(async (category = selectedCategory, usePrefetched = false) => {
+  const fetchJoke = useCallback(async (category: string, usePrefetched = false) => {
     setLoading(true);
     setError('');
 
     try {
-      if (usePrefetched && prefetchJoke && prefetchJoke.category === category) {
-        setJoke(prefetchJoke);
-        setPrefetchJoke(null);
+      if (usePrefetched && prefetchJokeRef.current && prefetchJokeRef.current.category === category) {
+        setJoke(prefetchJokeRef.current);
+        prefetchJokeRef.current = null;
       } else {
         const response = await apiCall<JokeResponse>(`/api/jokes/random?category=${encodeURIComponent(category)}`);
         setJoke(response.joke);
@@ -83,7 +82,7 @@ export default function JokesPage() {
     } finally {
       setLoading(false);
     }
-  }, [cachedJoke, prefetchJoke, prefetchNextJoke, selectedCategory]);
+  }, [cachedJoke, prefetchNextJoke]);
 
   useEffect(() => {
     fetchCategories();
@@ -120,7 +119,7 @@ export default function JokesPage() {
 
     window.addEventListener('keydown', onSpace);
     return () => window.removeEventListener('keydown', onSpace);
-  }, [fetchJoke, prefetchJoke, selectedCategory]);
+  }, [fetchJoke, selectedCategory]);
 
   const handleFavorite = async () => {
     if (!joke) return;

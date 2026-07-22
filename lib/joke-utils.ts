@@ -1,6 +1,8 @@
 import { Vibe } from './types';
 
 export type JokeType = 'single' | 'twopart';
+export const JOKE_CACHE_TTL_MINUTES = 5;
+export const JOKE_CACHE_TTL_MS = JOKE_CACHE_TTL_MINUTES * 60 * 1000;
 
 export interface JokePayload {
   external_id: string;
