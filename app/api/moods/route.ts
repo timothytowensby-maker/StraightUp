@@ -55,10 +55,58 @@ export async function GET(req: NextRequest) {
     const payload = authenticateRequest(req);
     const searchParams = new URL(req.url).searchParams;
     const city = searchParams.get('city');
+    const nearby = searchParams.get('nearby') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const radiusKm = Math.min(Math.max(parseInt(searchParams.get('radius_km') || '25'), 1), 100);
 
     let moods;
-    if (city) {
+    if (nearby) {
+      const latitude = parseFloat(searchParams.get('latitude') || '');
+      const longitude = parseFloat(searchParams.get('longitude') || '');
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return errorResponse('Valid latitude and longitude are required for nearby mode', 400);
+      }
+
+      const latitudeDelta = radiusKm / 111.32;
+      const longitudeDelta = radiusKm / Math.max(Math.cos((latitude * Math.PI) / 180) * 111.32, 1);
+
+      moods = await query(
+        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
+                u.first_name, u.age, u.city,
+                ROUND(geo.distance_km::numeric, 1) AS distance_km,
+                ROUND(geo.relative_x::numeric, 2) AS relative_x,
+                ROUND(geo.relative_y::numeric, 2) AS relative_y
+         FROM moods m
+         JOIN users u ON m.user_id = u.id
+         CROSS JOIN LATERAL (
+           SELECT 6371 * ACOS(
+                    LEAST(
+                      1,
+                      GREATEST(
+                        -1,
+                        COS(RADIANS($1)) * COS(RADIANS(u.latitude)) * COS(RADIANS(u.longitude) - RADIANS($2)) +
+                        SIN(RADIANS($1)) * SIN(RADIANS(u.latitude))
+                      )
+                    )
+                  ) AS distance_km,
+                  ((u.longitude - $2) * 111.32 * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
+                  ((u.latitude - $1) * 110.574) AS relative_y
+         ) geo
+         WHERE m.expires_at > NOW()
+           AND m.flagged = FALSE
+           AND m.user_id != $3
+           AND u.share_location = TRUE
+           AND u.latitude IS NOT NULL
+           AND u.longitude IS NOT NULL
+           AND u.latitude BETWEEN $1 - $4 AND $1 + $4
+           AND u.longitude BETWEEN $2 - $5 AND $2 + $5
+           AND geo.distance_km <= $6
+         ORDER BY geo.distance_km ASC, m.created_at DESC
+         LIMIT $7`,
+        [latitude, longitude, payload.id, latitudeDelta, longitudeDelta, radiusKm, limit]
+      );
+    } else if (city) {
       moods = await query(
         `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
                 u.first_name, u.age, u.city

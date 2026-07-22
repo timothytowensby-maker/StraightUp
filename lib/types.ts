@@ -7,6 +7,10 @@ export interface User {
   first_name: string;
   age: number;
   city: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  share_location?: boolean;
+  location_updated_at?: string | null;
   energy_traits: EnergyTrait[];
   email: string;
   created_at: string;
@@ -23,6 +27,12 @@ export interface Mood {
   expires_at: string;
   moderated: boolean;
   flagged: boolean;
+  first_name?: string;
+  age?: number;
+  city?: string;
+  distance_km?: number | null;
+  relative_x?: number | null;
+  relative_y?: number | null;
 }
 
 export interface Resonate {
