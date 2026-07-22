@@ -14,7 +14,7 @@ export default function Home() {
         <div className="card mb-8">
           <h2 className="text-2xl font-bold mb-4">What is StraightUp?</h2>
           <p className="text-vibe-300 mb-4">
-            Drop your current vibe. Find people who resonate with it. No games, no swiping—just real connections based on how you\'re actually feeling.
+            Drop your current vibe. Find people who resonate with it. No games, no swiping—just real connections based on how you&apos;re actually feeling.
           </p>
           <ul className="space-y-2 text-vibe-300 mb-6">
             <li>✨ Express your mood in 24 hours</li>
