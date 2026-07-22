@@ -12,6 +12,8 @@ const vibeMarkerClasses: Record<Vibe, string> = {
   chaotic: 'bg-purple-500 text-white',
 };
 
+const MAX_MAP_OFFSET_PERCENT = 42;
+
 type NearbyMoodMapProps = {
   moods: Mood[];
   radiusKm: number;
@@ -53,8 +55,20 @@ export default function NearbyMoodMap({
         {moods.map((mood) => {
           const relativeX = mood.relative_x ?? 0;
           const relativeY = mood.relative_y ?? 0;
-          const left = 50 + clamp((relativeX / radiusKm) * 42, -42, 42);
-          const top = 50 - clamp((relativeY / radiusKm) * 42, -42, 42);
+          const left =
+            50 +
+            clamp(
+              (relativeX / radiusKm) * MAX_MAP_OFFSET_PERCENT,
+              -MAX_MAP_OFFSET_PERCENT,
+              MAX_MAP_OFFSET_PERCENT
+            );
+          const top =
+            50 -
+            clamp(
+              (relativeY / radiusKm) * MAX_MAP_OFFSET_PERCENT,
+              -MAX_MAP_OFFSET_PERCENT,
+              MAX_MAP_OFFSET_PERCENT
+            );
           const isActive = activeMoodId === mood.id;
 
           return (

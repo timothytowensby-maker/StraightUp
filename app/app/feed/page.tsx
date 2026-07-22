@@ -7,6 +7,10 @@ import { Mood } from '@/lib/types';
 const GPS_CACHE_MAX_AGE_MS = 60000;
 const GPS_REQUEST_TIMEOUT_MS = 10000;
 
+function getStoredToken() {
+  return localStorage.getItem('token');
+}
+
 type ViewerProfile = {
   city: string;
   share_location?: boolean;
@@ -34,13 +38,11 @@ export default function Feed() {
   const [locationStatus, setLocationStatus] = useState('Using your city feed.');
   const [selectedMoodId, setSelectedMoodId] = useState<string | undefined>(undefined);
 
-  const getToken = () => localStorage.getItem('token');
-
   const fetchMoods = useCallback(async (options?: FetchMoodOptions) => {
     try {
       setLoading(true);
       setError('');
-      const token = getToken();
+      const token = getStoredToken();
       const nextMode = options?.mode ?? mode;
 
       if (!token) {
@@ -82,7 +84,7 @@ export default function Feed() {
     try {
       setLoading(true);
       setError('');
-      const token = getToken();
+      const token = getStoredToken();
 
       if (!token) {
         setError('Please sign in again.');
@@ -127,7 +129,7 @@ export default function Feed() {
     longitude: number,
     shareLocation: boolean
   ) => {
-    const token = getToken();
+    const token = getStoredToken();
 
     if (!token) {
       throw new Error('Please sign in again.');
@@ -173,7 +175,7 @@ export default function Feed() {
     try {
       setPosting(true);
       setError('');
-      const token = getToken();
+      const token = getStoredToken();
 
       if (!token) {
         setError('Please sign in again.');
@@ -206,7 +208,7 @@ export default function Feed() {
   const handleResonate = async (moodId: string) => {
     try {
       setError('');
-      const token = getToken();
+      const token = getStoredToken();
 
       if (!token) {
         setError('Please sign in again.');
@@ -265,8 +267,15 @@ export default function Feed() {
           }
         })();
       },
-      () => {
-        setLocationStatus('GPS permission denied. Falling back to your city feed.');
+      (geoError) => {
+        const locationErrorMessage =
+          geoError.code === geoError.PERMISSION_DENIED
+            ? 'GPS permission denied. Falling back to your city feed.'
+            : geoError.code === geoError.TIMEOUT
+              ? 'GPS request timed out. Falling back to your city feed.'
+              : `Unable to read your GPS location: ${geoError.message}`;
+
+        setLocationStatus(locationErrorMessage);
         void fetchMoods({ mode: 'city', city: cityFilter });
       },
       {
