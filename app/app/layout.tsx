@@ -57,6 +57,9 @@ export default function AppLayout({
             <Link href="/app/messages" className="text-vibe-300 hover:text-white">
               Messages
             </Link>
+            <Link href="/app/jokes" className="text-vibe-300 hover:text-white">
+              Jokes
+            </Link>
             <button
               onClick={handleLogout}
               className="btn btn-secondary text-sm"

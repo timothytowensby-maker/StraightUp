@@ -56,6 +56,15 @@ Visit `http://localhost:3000` to get started.
 - `POST /api/messages` - Send message
 - `GET /api/messages` - Get conversation
 
+### Jokes
+- `GET /api/jokes/random` - Get a random joke (vibe-aware category + cache fallback)
+- `GET /api/jokes/category/:category` - Get a random joke from a specific category
+- `GET /api/jokes/categories` - List categories and vibe-based suggestions
+- `POST /api/jokes/favorite` - Save a joke as favorite
+- `GET /api/jokes/favorites` - Get favorite jokes
+- `POST /api/jokes/reaction` - Like/dislike a joke
+- `GET /api/jokes/trending` - Get trending jokes across users
+
 ## Tech Stack
 
 - **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS

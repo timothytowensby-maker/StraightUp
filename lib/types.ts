@@ -70,3 +70,14 @@ export interface ModerationResult {
   reason?: string;
   severity?: 'warning' | 'block';
 }
+
+export interface Joke {
+  external_id: string;
+  category: string;
+  type: 'single' | 'twopart';
+  setup: string | null;
+  delivery: string | null;
+  joke: string | null;
+  safe: boolean;
+  source: string;
+}
