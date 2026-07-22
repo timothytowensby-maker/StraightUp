@@ -92,7 +92,9 @@ export async function GET(req: NextRequest) {
          FROM moods m
          JOIN users u ON m.user_id = u.id
          CROSS JOIN LATERAL (
-           SELECT $8 * ACOS(
+           SELECT
+                  -- Great-circle distance between the viewer and the mood owner in kilometers.
+                  $8 * ACOS(
                     LEAST(
                       1,
                       GREATEST(
@@ -102,7 +104,9 @@ export async function GET(req: NextRequest) {
                       )
                     )
                   ) AS distance_km,
+                  -- Approximate east/west offset in kilometers for plotting nearby markers on the map card.
                   ((u.longitude - $2) * $9 * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
+                  -- Approximate north/south offset in kilometers for plotting nearby markers on the map card.
                   ((u.latitude - $1) * $10) AS relative_y
          ) geo
          WHERE m.expires_at > NOW()

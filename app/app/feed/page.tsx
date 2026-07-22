@@ -234,6 +234,28 @@ export default function Feed() {
     }
   };
 
+  const enableNearbyWithPosition = async (nextLocation: {
+    latitude: number;
+    longitude: number;
+  }) => {
+    try {
+      setViewerLocation(nextLocation);
+      await syncLocation(nextLocation.latitude, nextLocation.longitude, true);
+      setLocationSharing(true);
+      setLocationStatus(`Showing moods within ${radiusKm} km of your current location.`);
+      await fetchMoods({
+        mode: 'nearby',
+        latitude: nextLocation.latitude,
+        longitude: nextLocation.longitude,
+        radiusKm,
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to enable nearby mode');
+      setLocationStatus('Falling back to your city feed.');
+      await fetchMoods({ mode: 'city', city: cityFilter });
+    }
+  };
+
   const handleEnableNearby = () => {
     if (!navigator.geolocation) {
       setError('Your browser does not support GPS location.');
@@ -245,29 +267,10 @@ export default function Feed() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const nextLocation = {
+        void enableNearbyWithPosition({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-        };
-
-        void (async () => {
-          try {
-            setViewerLocation(nextLocation);
-            await syncLocation(nextLocation.latitude, nextLocation.longitude, true);
-            setLocationSharing(true);
-            setLocationStatus(`Showing moods within ${radiusKm} km of your current location.`);
-            await fetchMoods({
-              mode: 'nearby',
-              latitude: nextLocation.latitude,
-              longitude: nextLocation.longitude,
-              radiusKm,
-            });
-          } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Unable to enable nearby mode');
-            setLocationStatus('Falling back to your city feed.');
-            await fetchMoods({ mode: 'city', city: cityFilter });
-          }
-        })();
+        });
       },
       (geoError) => {
         const locationErrorMessage =
