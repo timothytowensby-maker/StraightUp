@@ -5,6 +5,10 @@ import { classifyMood, moderateContent } from '@/lib/ai';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
+const EARTH_RADIUS_KM = 6371;
+const KM_PER_LATITUDE_DEGREE = 110.574;
+const KM_PER_LONGITUDE_DEGREE_AT_EQUATOR = 111.32;
+
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
@@ -68,8 +72,13 @@ export async function GET(req: NextRequest) {
         return errorResponse('Valid latitude and longitude are required for nearby mode', 400);
       }
 
-      const latitudeDelta = radiusKm / 111.32;
-      const longitudeDelta = radiusKm / Math.max(Math.cos((latitude * Math.PI) / 180) * 111.32, 1);
+      const latitudeDelta = radiusKm / KM_PER_LATITUDE_DEGREE;
+      const longitudeDelta =
+        radiusKm /
+        Math.max(
+          Math.cos((latitude * Math.PI) / 180) * KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
+          1
+        );
 
       moods = await query(
         `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
@@ -80,7 +89,7 @@ export async function GET(req: NextRequest) {
          FROM moods m
          JOIN users u ON m.user_id = u.id
          CROSS JOIN LATERAL (
-           SELECT 6371 * ACOS(
+           SELECT ${EARTH_RADIUS_KM} * ACOS(
                     LEAST(
                       1,
                       GREATEST(
@@ -90,8 +99,8 @@ export async function GET(req: NextRequest) {
                       )
                     )
                   ) AS distance_km,
-                  ((u.longitude - $2) * 111.32 * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
-                  ((u.latitude - $1) * 110.574) AS relative_y
+                  ((u.longitude - $2) * ${KM_PER_LONGITUDE_DEGREE_AT_EQUATOR} * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
+                  ((u.latitude - $1) * ${KM_PER_LATITUDE_DEGREE}) AS relative_y
          ) geo
          WHERE m.expires_at > NOW()
            AND m.flagged = FALSE

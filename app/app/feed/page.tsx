@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import NearbyMoodMap from '@/components/NearbyMoodMap';
 import { Mood } from '@/lib/types';
 
+const GPS_CACHE_MAX_AGE_MS = 60000;
+const GPS_REQUEST_TIMEOUT_MS = 10000;
+
 type ViewerProfile = {
   city: string;
   share_location?: boolean;
@@ -268,8 +271,8 @@ export default function Feed() {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
+        timeout: GPS_REQUEST_TIMEOUT_MS,
+        maximumAge: GPS_CACHE_MAX_AGE_MS,
       }
     );
   };

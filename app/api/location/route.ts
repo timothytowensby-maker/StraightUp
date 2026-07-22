@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
 import { query, queryOne } from '@/lib/db';
 
+const LOCATION_UPDATE_COOLDOWN_MS = 15000;
+
 function isValidCoordinate(value: unknown, min: number, max: number) {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 }
@@ -27,7 +29,7 @@ export async function PUT(req: NextRequest) {
 
     if (currentUser.location_updated_at) {
       const lastUpdatedAt = new Date(currentUser.location_updated_at).getTime();
-      if (Date.now() - lastUpdatedAt < 15000) {
+      if (Date.now() - lastUpdatedAt < LOCATION_UPDATE_COOLDOWN_MS) {
         return errorResponse('Location updates are limited to once every 15 seconds', 429);
       }
     }
