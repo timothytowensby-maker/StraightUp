@@ -1,5 +1,6 @@
 'use client';
 
+import { kilometersToMiles, milesToKilometers } from '@/lib/nearby';
 import { Mood, Vibe } from '@/lib/types';
 
 const vibeMarkerClasses: Record<Vibe, string> = {
@@ -17,7 +18,7 @@ const MAX_MAP_OFFSET_PERCENT = 42;
 
 type NearbyMoodMapProps = {
   moods: Mood[];
-  radiusKm: number;
+  radiusMiles: number;
   activeMoodId?: string;
   onSelect: (moodId: string) => void;
 };
@@ -28,16 +29,18 @@ function clamp(value: number, min: number, max: number) {
 
 export default function NearbyMoodMap({
   moods,
-  radiusKm,
+  radiusMiles,
   activeMoodId,
   onSelect,
 }: NearbyMoodMapProps) {
+  const radiusKm = milesToKilometers(radiusMiles);
+
   return (
     <div className="card mb-6">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-lg font-bold text-vibe-100">Nearby mood map</h3>
-          <p className="text-sm text-vibe-400">You are centered. Pins show who is nearby within {radiusKm} km.</p>
+          <p className="text-sm text-vibe-400">You are centered. Pins show who is nearby within {radiusMiles} miles.</p>
         </div>
         <span className="badge">{moods.length} nearby</span>
       </div>
@@ -81,7 +84,7 @@ export default function NearbyMoodMap({
                 vibeMarkerClasses[mood.vibe]
               } ${isActive ? 'scale-110 ring-4 ring-vibe-300/40' : ''}`}
               style={{ left: `${left}%`, top: `${top}%` }}
-              title={`${mood.first_name ?? 'Unknown user'} • ${mood.distance_km ?? 0} km away`}
+              title={`${mood.first_name ?? 'Unknown user'} • ${((mood.distance_km && kilometersToMiles(mood.distance_km)) || 0).toFixed(1)} miles away`}
             >
               {(mood.first_name ?? '?').slice(0, 1).toUpperCase()}
             </button>

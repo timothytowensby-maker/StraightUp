@@ -1,13 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import NearbyDistanceSelector from '@/components/NearbyDistanceSelector';
 import NearbyMoodMap from '@/components/NearbyMoodMap';
+import NearbySkeleton from '@/components/NearbySkeleton';
+import { useLocation, type LocationCoords } from '@/hooks/useLocation';
+import { useNearbyFeed } from '@/hooks/useNearbyFeed';
+import {
+  DEFAULT_NEARBY_DISTANCE_MILES,
+  kilometersToMiles,
+  normalizeNearbyDistanceMiles,
+} from '@/lib/nearby';
 import { Mood } from '@/lib/types';
-
-// Reuse a recent GPS reading for up to one minute to reduce repeat permission prompts and wait time.
-const GPS_CACHE_MAX_AGE_MS = 60000;
-// Cap GPS lookup time at ten seconds so nearby mode can fall back quickly when location is unavailable.
-const GPS_REQUEST_TIMEOUT_MS = 10000;
 
 function getStoredToken() {
   return localStorage.getItem('token');
@@ -18,69 +22,78 @@ type ViewerProfile = {
   share_location?: boolean;
 };
 
-type FetchMoodOptions = {
-  mode?: 'city' | 'nearby';
+type CityFeedOptions = {
   city?: string;
-  latitude?: number;
-  longitude?: number;
-  radiusKm?: number;
 };
+
+function getNearbyStatusMessage(distanceMiles: number) {
+  return `Showing vibes within ${distanceMiles} miles of your current location.`;
+}
 
 export default function Feed() {
   const [moods, setMoods] = useState<Mood[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [posting, setPosting] = useState(false);
+  const [locationUpdating, setLocationUpdating] = useState(false);
   const [moodText, setMoodText] = useState('');
   const [cityFilter, setCityFilter] = useState('');
-  const [radiusKm, setRadiusKm] = useState(25);
+  const [distanceMiles, setDistanceMiles] = useState(DEFAULT_NEARBY_DISTANCE_MILES);
   const [mode, setMode] = useState<'city' | 'nearby'>('city');
-  const [viewerLocation, setViewerLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [viewerLocation, setViewerLocation] = useState<LocationCoords | null>(null);
   const [locationSharing, setLocationSharing] = useState(false);
   const [locationStatus, setLocationStatus] = useState('Using your city feed.');
   const [selectedMoodId, setSelectedMoodId] = useState<string | undefined>(undefined);
 
-  const fetchMoods = useCallback(async (options?: FetchMoodOptions) => {
-    try {
-      setLoading(true);
-      setError('');
-      const token = getStoredToken();
-      const nextMode = options?.mode ?? mode;
+  const {
+    coords,
+    errorCode: locationErrorCode,
+    errorMessage: locationErrorMessage,
+    isLoading: locationLoading,
+    refresh: refreshLocation,
+  } = useLocation();
 
-      if (!token) {
-        setError('Please sign in again.');
-        return;
+  const nearbyFeed = useNearbyFeed(viewerLocation, distanceMiles, mode === 'nearby');
+
+  const fetchCityMoods = useCallback(
+    async (options?: CityFeedOptions) => {
+      try {
+        setLoading(true);
+        setError('');
+        const token = getStoredToken();
+
+        if (!token) {
+          setError('Please sign in again.');
+          return;
+        }
+
+        const nextCity = options?.city ?? cityFilter;
+        const params = new URLSearchParams();
+
+        if (nextCity) {
+          params.set('city', nextCity);
+        }
+
+        const response = await fetch(`/api/moods${params.toString() ? `?${params.toString()}` : ''}`, {
+          headers: { Authorization: 'Bearer ' + token },
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load moods');
+        }
+
+        const nextMoods = (data.moods as Mood[]) || [];
+        setMode('city');
+        setMoods(nextMoods);
+      } catch (fetchError: unknown) {
+        setError(fetchError instanceof Error ? fetchError.message : 'Failed to load moods');
+      } finally {
+        setLoading(false);
       }
-
-      const params = new URLSearchParams();
-      if (nextMode === 'nearby' && options?.latitude !== undefined && options.longitude !== undefined) {
-        params.set('nearby', 'true');
-        params.set('latitude', String(options.latitude));
-        params.set('longitude', String(options.longitude));
-        params.set('radius_km', String(options.radiusKm ?? radiusKm));
-      } else if (options?.city || cityFilter) {
-        params.set('city', options?.city ?? cityFilter);
-      }
-
-      const response = await fetch(`/api/moods${params.toString() ? `?${params.toString()}` : ''}`, {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to load moods');
-      }
-
-      const nextMoods = (data.moods as Mood[]) || [];
-      setMode(nextMode);
-      setMoods(nextMoods);
-      setSelectedMoodId(nextMoods[0]?.id);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load moods');
-    } finally {
-      setLoading(false);
-    }
-  }, [cityFilter, mode, radiusKm]);
+    },
+    [cityFilter]
+  );
 
   const initializeFeed = useCallback(async () => {
     try {
@@ -103,13 +116,13 @@ export default function Feed() {
       setLocationSharing(Boolean(profile.share_location));
       setLocationStatus(nextCity ? `Using ${nextCity} as your fallback city feed.` : 'Using the global feed.');
 
-      await fetchMoods({ mode: 'city', city: nextCity });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load your feed');
+      await fetchCityMoods({ city: nextCity });
+    } catch (fetchError: unknown) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Failed to load your feed');
     } finally {
       setLoading(false);
     }
-  }, [fetchMoods]);
+  }, [fetchCityMoods]);
 
   useEffect(() => {
     void initializeFeed();
@@ -117,14 +130,28 @@ export default function Feed() {
 
   useEffect(() => {
     if (mode === 'nearby' && viewerLocation) {
-      void fetchMoods({
-        mode: 'nearby',
-        latitude: viewerLocation.latitude,
-        longitude: viewerLocation.longitude,
-        radiusKm,
-      });
+      setLocationStatus(getNearbyStatusMessage(distanceMiles));
     }
-  }, [fetchMoods, mode, radiusKm, viewerLocation]);
+  }, [distanceMiles, mode, viewerLocation]);
+
+  useEffect(() => {
+    if (mode === 'city' && !viewerLocation && locationErrorMessage) {
+      setLocationStatus(locationErrorMessage);
+    }
+  }, [locationErrorMessage, mode, viewerLocation]);
+
+  const displayedMoods = useMemo(
+    () => (mode === 'nearby' ? nearbyFeed.data?.moods ?? [] : moods),
+    [mode, moods, nearbyFeed.data]
+  );
+
+  const feedLoading = mode === 'nearby' ? nearbyFeed.isLoading : loading;
+  const pageError = error || (mode === 'nearby' ? nearbyFeed.error : '');
+  const isRefreshingLocation = locationLoading || locationUpdating;
+
+  useEffect(() => {
+    setSelectedMoodId(displayedMoods[0]?.id);
+  }, [displayedMoods]);
 
   const syncLocation = async (
     latitude: number,
@@ -156,18 +183,44 @@ export default function Feed() {
     }
   };
 
+  const fallbackToCityFeed = useCallback(
+    async (statusMessage: string) => {
+      setViewerLocation(null);
+      setMode('city');
+      setLocationSharing(false);
+      setLocationStatus(statusMessage);
+      await fetchCityMoods({ city: cityFilter });
+    },
+    [cityFilter, fetchCityMoods]
+  );
+
+  const enableNearbyWithPosition = useCallback(
+    async (nextLocation: LocationCoords) => {
+      try {
+        setLocationUpdating(true);
+        setError('');
+        await syncLocation(nextLocation.latitude, nextLocation.longitude, true);
+        setViewerLocation(nextLocation);
+        setMode('nearby');
+        setLocationSharing(true);
+        setLocationStatus(getNearbyStatusMessage(distanceMiles));
+      } catch (syncError: unknown) {
+        setError(syncError instanceof Error ? syncError.message : 'Unable to enable nearby mode');
+        await fallbackToCityFeed('We couldn’t refresh your GPS location, so your city feed is still active.');
+      } finally {
+        setLocationUpdating(false);
+      }
+    },
+    [distanceMiles, fallbackToCityFeed]
+  );
+
   const refreshCurrentFeed = async () => {
     if (mode === 'nearby' && viewerLocation) {
-      await fetchMoods({
-        mode: 'nearby',
-        latitude: viewerLocation.latitude,
-        longitude: viewerLocation.longitude,
-        radiusKm,
-      });
+      await nearbyFeed.refresh(viewerLocation);
       return;
     }
 
-    await fetchMoods({ mode: 'city', city: cityFilter });
+    await fetchCityMoods({ city: cityFilter });
   };
 
   const handlePostMood = async (e: React.FormEvent) => {
@@ -200,8 +253,8 @@ export default function Feed() {
       } else {
         setError(data.error);
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unable to post mood');
+    } catch (postError: unknown) {
+      setError(postError instanceof Error ? postError.message : 'Unable to post mood');
     } finally {
       setPosting(false);
     }
@@ -229,83 +282,63 @@ export default function Feed() {
       if (response.ok) {
         await refreshCurrentFeed();
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unable to resonate');
+    } catch (resonateError: unknown) {
+      setError(resonateError instanceof Error ? resonateError.message : 'Unable to resonate');
     }
   };
 
-  const enableNearbyWithPosition = async (nextLocation: {
-    latitude: number;
-    longitude: number;
-  }) => {
-    try {
-      setViewerLocation(nextLocation);
-      await syncLocation(nextLocation.latitude, nextLocation.longitude, true);
-      setLocationSharing(true);
-      setLocationStatus(`Showing moods within ${radiusKm} km of your current location.`);
-      await fetchMoods({
-        mode: 'nearby',
-        latitude: nextLocation.latitude,
-        longitude: nextLocation.longitude,
-        radiusKm,
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unable to enable nearby mode');
-      setLocationStatus('Falling back to your city feed.');
-      await fetchMoods({ mode: 'city', city: cityFilter });
-    }
-  };
-
-  const handleEnableNearby = () => {
-    if (!navigator.geolocation) {
-      setError('Your browser does not support GPS location.');
-      return;
-    }
-
+  const handleEnableNearby = async () => {
     setLocationStatus('Requesting GPS access...');
     setError('');
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        void enableNearbyWithPosition({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-      },
-      (geoError) => {
-        const locationErrorMessage =
-          geoError.code === geoError.PERMISSION_DENIED
-            ? 'GPS permission denied. Falling back to your city feed.'
-            : geoError.code === geoError.TIMEOUT
-              ? 'GPS request timed out. Falling back to your city feed.'
-              : 'Unable to read your GPS location. Falling back to your city feed.';
+    const nextLocation = coords ?? (await refreshLocation());
 
-        setLocationStatus(locationErrorMessage);
-        void fetchMoods({ mode: 'city', city: cityFilter });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: GPS_REQUEST_TIMEOUT_MS,
-        maximumAge: GPS_CACHE_MAX_AGE_MS,
-      }
-    );
+    if (!nextLocation) {
+      await fallbackToCityFeed(
+        locationErrorMessage || 'We couldn’t get your GPS location, so your city feed is still active.'
+      );
+      return;
+    }
+
+    await enableNearbyWithPosition(nextLocation);
+  };
+
+  const handleRefreshLocation = async () => {
+    setLocationStatus('Refreshing your GPS location...');
+    setError('');
+
+    const nextLocation = await refreshLocation();
+
+    if (!nextLocation) {
+      await fallbackToCityFeed(
+        locationErrorMessage || 'We couldn’t refresh your GPS location, so your city feed is still active.'
+      );
+      return;
+    }
+
+    await enableNearbyWithPosition(nextLocation);
   };
 
   const handlePauseLocation = async () => {
     if (!viewerLocation) {
+      setViewerLocation(null);
       setLocationSharing(false);
       setLocationStatus('Location sharing paused. Using your city feed.');
-      await fetchMoods({ mode: 'city', city: cityFilter });
+      await fetchCityMoods({ city: cityFilter });
       return;
     }
 
     try {
+      setLocationUpdating(true);
       await syncLocation(viewerLocation.latitude, viewerLocation.longitude, false);
+      setViewerLocation(null);
       setLocationSharing(false);
       setLocationStatus('Location sharing paused. Using your city feed.');
-      await fetchMoods({ mode: 'city', city: cityFilter });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Unable to pause location sharing');
+      await fetchCityMoods({ city: cityFilter });
+    } catch (pauseError: unknown) {
+      setError(pauseError instanceof Error ? pauseError.message : 'Unable to pause location sharing');
+    } finally {
+      setLocationUpdating(false);
     }
   };
 
@@ -318,49 +351,80 @@ export default function Feed() {
             <p className="text-sm text-vibe-400">{locationStatus}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={handleEnableNearby} className="btn btn-primary">
-              Use GPS nearby
+            <button
+              type="button"
+              onClick={() => {
+                void handleEnableNearby();
+              }}
+              className="btn btn-primary"
+              disabled={isRefreshingLocation}
+            >
+              {isRefreshingLocation && mode !== 'nearby' ? 'Locating...' : 'Use GPS nearby'}
             </button>
-            <button type="button" onClick={handlePauseLocation} className="btn btn-secondary">
+            <button
+              type="button"
+              onClick={() => {
+                void handleRefreshLocation();
+              }}
+              className="btn btn-secondary"
+              disabled={isRefreshingLocation}
+            >
+              {isRefreshingLocation && mode === 'nearby' ? 'Refreshing...' : 'Refresh Location'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void handlePauseLocation();
+              }}
+              className="btn btn-secondary"
+              disabled={locationUpdating}
+            >
               Pause sharing
             </button>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_auto]">
-          <input
-            type="text"
-            className="input"
-            placeholder="Fallback city"
-            value={cityFilter}
-            onChange={(e) => setCityFilter(e.target.value)}
-          />
-          <select
-            className="input"
-            value={radiusKm}
-            onChange={(e) => setRadiusKm(parseInt(e.target.value, 10))}
-          >
-            {[5, 10, 25, 50].map((value) => (
-              <option key={value} value={value}>
-                {value} km
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              void fetchMoods({ mode: 'city', city: cityFilter });
-            }}
-          >
-            Refresh city feed
-          </button>
+        <div className="mt-4 space-y-4">
+          <div>
+            <p className="mb-2 text-sm font-medium text-vibe-300">Nearby distance</p>
+            <NearbyDistanceSelector
+              value={distanceMiles}
+              onChange={(nextDistanceMiles) => setDistanceMiles(normalizeNearbyDistanceMiles(nextDistanceMiles))}
+              disabled={feedLoading && mode === 'nearby'}
+            />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+            <input
+              type="text"
+              className="input"
+              placeholder="Fallback city"
+              value={cityFilter}
+              onChange={(e) => setCityFilter(e.target.value)}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                void fetchCityMoods({ city: cityFilter });
+              }}
+            >
+              Refresh city feed
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-vibe-400">
           <span className="badge">{mode === 'nearby' ? 'Nearby mode' : 'City mode'}</span>
           <span className="badge">{locationSharing ? 'Sharing location' : 'Location hidden'}</span>
+          <span className="badge">{distanceMiles} mile radius</span>
         </div>
+
+        {!viewerLocation && locationErrorCode && (
+          <div className="mt-4 rounded-2xl border border-vibe-700 bg-vibe-950/70 p-4 text-sm text-vibe-200">
+            {locationErrorMessage}
+          </div>
+        )}
       </div>
 
       <div className="card mb-8">
@@ -386,65 +450,70 @@ export default function Feed() {
         </form>
       </div>
 
-      {error && (
+      {pageError && (
         <div className="bg-red-900 border border-red-700 p-4 rounded-lg text-red-100 mb-4">
-          {error}
+          {pageError}
         </div>
       )}
 
-      {mode === 'nearby' && moods.length > 0 && (
+      {mode === 'nearby' && displayedMoods.length > 0 && (
         <NearbyMoodMap
-          moods={moods}
-          radiusKm={radiusKm}
+          moods={displayedMoods}
+          radiusMiles={distanceMiles}
           activeMoodId={selectedMoodId}
           onSelect={setSelectedMoodId}
         />
       )}
 
       <div className="space-y-4">
-        {loading ? (
-          <div className="text-center text-vibe-400">Loading moods...</div>
-        ) : moods.length === 0 ? (
-          <div className="text-center text-vibe-400">
+        {feedLoading ? (
+          <NearbySkeleton />
+        ) : displayedMoods.length === 0 ? (
+          <div className="card text-center text-vibe-300">
             {mode === 'nearby'
-              ? 'No nearby moods yet. Try a larger radius or switch back to city mode.'
+              ? 'No nearby vibes right now. Try expanding to 25 miles or refresh your location.'
               : 'No moods yet. Be the first!'}
           </div>
         ) : (
-          moods.map((mood) => (
-            <div key={mood.id} className="card">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-bold text-lg">{mood.first_name}, {mood.age}</h3>
-                  <p className="text-sm text-vibe-400">{mood.city}</p>
+          displayedMoods.map((mood) => {
+            const distanceAway =
+              mode === 'nearby' && mood.distance_km !== null && mood.distance_km !== undefined
+                ? `${kilometersToMiles(mood.distance_km).toFixed(1)} miles away`
+                : null;
+
+            return (
+              <div key={mood.id} className="card">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg">{mood.first_name}, {mood.age}</h3>
+                    <p className="text-sm text-vibe-400">{mood.city}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="badge">{mood.vibe}</span>
+                    {distanceAway && <span className="text-xs text-vibe-400">{distanceAway}</span>}
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className="badge">{mood.vibe}</span>
-                  {mode === 'nearby' && mood.distance_km !== null && mood.distance_km !== undefined && (
-                    <span className="text-xs text-vibe-400">{mood.distance_km} km away</span>
-                  )}
-                </div>
+                <p className="text-vibe-100 mb-4">{mood.text}</p>
+                {mood.tags && mood.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {mood.tags.map((tag) => (
+                      <span key={tag} className="text-xs bg-vibe-700 px-2 py-1 rounded">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    void handleResonate(mood.id);
+                  }}
+                  className="btn btn-secondary w-full"
+                >
+                  ✨ Resonate
+                </button>
               </div>
-              <p className="text-vibe-100 mb-4">{mood.text}</p>
-              {mood.tags && mood.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {mood.tags.map((tag) => (
-                    <span key={tag} className="text-xs bg-vibe-700 px-2 py-1 rounded">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  void handleResonate(mood.id);
-                }}
-                className="btn btn-secondary w-full"
-              >
-                ✨ Resonate
-              </button>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

@@ -2,11 +2,13 @@ import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
 import { classifyMood, moderateContent } from '@/lib/ai';
+import { milesToKilometers, milesToMeters, parseNearbyDistanceMiles } from '@/lib/nearby';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
 // WGS84 mean Earth radius used for spherical distance calculations.
 const EARTH_RADIUS_KM = 6371;
+const EARTH_RADIUS_METERS = EARTH_RADIUS_KM * 1000;
 // Approximate kilometers per degree of latitude.
 const KM_PER_LATITUDE_DEGREE = 110.574;
 // Approximate kilometers per degree of longitude at the equator before latitude scaling is applied.
@@ -64,7 +66,15 @@ export async function GET(req: NextRequest) {
     const city = searchParams.get('city');
     const nearby = searchParams.get('nearby') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
-    const radiusKm = Math.min(Math.max(parseInt(searchParams.get('radius_km') || '25'), 1), 100);
+    const legacyRadiusKm = parseInt(searchParams.get('radius_km') || '25', 10);
+    const hasDistanceParam = searchParams.has('distance');
+    const distanceMiles = parseNearbyDistanceMiles(searchParams.get('distance'));
+    const radiusKm = hasDistanceParam
+      ? milesToKilometers(distanceMiles)
+      : Number.isFinite(legacyRadiusKm)
+        ? Math.min(Math.max(legacyRadiusKm, 1), 100)
+        : 25;
+    const maxDistanceMeters = hasDistanceParam ? milesToMeters(distanceMiles) : radiusKm * 1000;
 
     let moods;
     if (nearby) {
@@ -86,14 +96,14 @@ export async function GET(req: NextRequest) {
       moods = await query(
         `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
                 u.first_name, u.age, u.city,
-                ROUND(geo.distance_km::numeric, 1) AS distance_km,
+                ROUND((geo.distance_meters / 1000)::numeric, 1) AS distance_km,
                 ROUND(geo.relative_x::numeric, 2) AS relative_x,
                 ROUND(geo.relative_y::numeric, 2) AS relative_y
          FROM moods m
          JOIN users u ON m.user_id = u.id
          CROSS JOIN LATERAL (
            SELECT
-                  -- Great-circle distance between the viewer and the mood owner in kilometers.
+                  -- Great-circle distance between the viewer and the mood owner in meters.
                   $8 * ACOS(
                     LEAST(
                       1,
@@ -103,7 +113,7 @@ export async function GET(req: NextRequest) {
                         SIN(RADIANS($1)) * SIN(RADIANS(u.latitude))
                       )
                     )
-                  ) AS distance_km,
+                  ) AS distance_meters,
                   -- Approximate east/west offset in kilometers for plotting nearby markers on the map card.
                   ((u.longitude - $2) * $9 * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
                   -- Approximate north/south offset in kilometers for plotting nearby markers on the map card.
@@ -117,8 +127,8 @@ export async function GET(req: NextRequest) {
            AND u.longitude IS NOT NULL
            AND u.latitude BETWEEN $1 - $4 AND $1 + $4
            AND u.longitude BETWEEN $2 - $5 AND $2 + $5
-           AND geo.distance_km <= $6
-         ORDER BY geo.distance_km ASC, m.created_at DESC
+           AND geo.distance_meters <= $6
+         ORDER BY geo.distance_meters ASC, m.created_at DESC
          LIMIT $7`,
         [
           latitude,
@@ -126,9 +136,9 @@ export async function GET(req: NextRequest) {
           payload.id,
           latitudeDelta,
           longitudeDelta,
-          radiusKm,
+         maxDistanceMeters,
           limit,
-          EARTH_RADIUS_KM,
+         EARTH_RADIUS_METERS,
           KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
           KM_PER_LATITUDE_DEGREE,
         ]
