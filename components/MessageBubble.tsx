@@ -15,7 +15,11 @@ export function MessageBubble({ message, isOwn }: MessageBubbleProps) {
       <p className="text-white">{message.text}</p>
       <div className="text-xs text-vibe-300 mt-1 flex items-center justify-between gap-3">
         <span>{formatTime(message.created_at)}</span>
-        {isOwn && <span>{message.read ? 'Read' : 'Sent'}</span>}
+        {isOwn && (
+          <span aria-label={message.read ? 'Message has been read' : 'Message sent'}>
+            {message.read ? '✓✓ Read' : '✓ Sent'}
+          </span>
+        )}
       </div>
     </div>
   );

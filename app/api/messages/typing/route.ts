@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     pruneExpiredTypingEntries(matchId);
 
     return successResponse({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Set typing status error');
   }
 }
@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
       : [];
 
     return successResponse({ typingUsers });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Get typing status error');
   }
 }

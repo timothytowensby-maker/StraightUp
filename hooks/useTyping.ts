@@ -5,6 +5,9 @@ export interface TypingUser {
   firstName: string;
 }
 
+const HEARTBEAT_MS = 1500;
+const STOP_TYPING_MS = 4000;
+
 export function useTyping(conversationId: string | null) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -19,7 +22,7 @@ export function useTyping(conversationId: string | null) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `******,
+          Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({ match_id: conversationId }),
       });
@@ -37,7 +40,7 @@ export function useTyping(conversationId: string | null) {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/messages/typing?match_id=${conversationId}`, {
-        headers: { Authorization: `****** },
+        headers: { Authorization: 'Bearer ' + token },
       });
       const data = await response.json();
       if (!response.ok) return;
@@ -54,7 +57,7 @@ export function useTyping(conversationId: string | null) {
     }
     stopTypingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-    }, 2000);
+    }, STOP_TYPING_MS);
   }, []);
 
   useEffect(() => {
@@ -62,7 +65,7 @@ export function useTyping(conversationId: string | null) {
     void postTyping();
     const heartbeat = setInterval(() => {
       void postTyping();
-    }, 1500);
+    }, HEARTBEAT_MS);
 
     return () => clearInterval(heartbeat);
   }, [isTyping, postTyping]);
@@ -76,7 +79,7 @@ export function useTyping(conversationId: string | null) {
     void fetchTypingUsers();
     const interval = setInterval(() => {
       void fetchTypingUsers();
-    }, 1500);
+    }, HEARTBEAT_MS);
     return () => clearInterval(interval);
   }, [conversationId, fetchTypingUsers]);
 

@@ -10,7 +10,7 @@ export default function Messages() {
   const searchParams = useSearchParams();
   const matchId = searchParams.get('matchId');
   const [newMessage, setNewMessage] = useState('');
-  const [currentUserId, setCurrentUserId] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const { messages, loading, sending, error, sendMessage } = useMessages(matchId);
   const { typingUsers, notifyTyping } = useTyping(matchId);
@@ -23,12 +23,13 @@ export default function Messages() {
     const fetchCurrentUser = async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
+
       const response = await fetch('/api/auth/me', {
-        headers: { Authorization: `****** },
+        headers: { Authorization: 'Bearer ' + token },
       });
       if (!response.ok) return;
       const user = await response.json();
-      setCurrentUserId(user.id || '');
+      setCurrentUserId(user.id || null);
     };
 
     void fetchCurrentUser();
@@ -36,7 +37,7 @@ export default function Messages() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, typingUsers.length]);
+  }, [messages.length]);
 
   const typingLabel = useMemo(() => {
     if (typingUsers.length === 0) {
@@ -85,7 +86,7 @@ export default function Messages() {
           <div className="text-center text-vibe-400">No messages yet. Start the conversation!</div>
         ) : (
           messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} isOwn={msg.sender_id === currentUserId} />
+            <MessageBubble key={msg.id} message={msg} isOwn={Boolean(currentUserId && msg.sender_id === currentUserId)} />
           ))
         )}
         {typingLabel && <p className="text-xs text-vibe-300 italic">{typingLabel}</p>}

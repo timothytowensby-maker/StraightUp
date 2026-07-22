@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Message } from '@/lib/types';
 
+function getMessageError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Failed to process messages';
+}
+
 export function useMessages(matchId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +23,7 @@ export function useMessages(matchId: string | null) {
 
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/messages?match_id=${matchId}`, {
-        headers: { Authorization: `****** },
+        headers: { Authorization: 'Bearer ' + token },
       });
       const data = await response.json();
 
@@ -26,8 +33,8 @@ export function useMessages(matchId: string | null) {
 
       setMessages(data.messages || []);
       setError('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch messages');
+    } catch (err: unknown) {
+      setError(getMessageError(err));
     } finally {
       setLoading(false);
     }
@@ -44,7 +51,7 @@ export function useMessages(matchId: string | null) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `******
+            Authorization: 'Bearer ' + token,
           },
           body: JSON.stringify({ match_id: matchId, text }),
         });
@@ -56,8 +63,8 @@ export function useMessages(matchId: string | null) {
 
         await fetchMessages();
         return true;
-      } catch (err: any) {
-        setError(err.message || 'Failed to send message');
+      } catch (err: unknown) {
+        setError(getMessageError(err));
         return false;
       } finally {
         setSending(false);
@@ -77,7 +84,7 @@ export function useMessages(matchId: string | null) {
     void fetchMessages();
     const interval = setInterval(() => {
       void fetchMessages();
-    }, 2000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [fetchMessages, matchId]);
