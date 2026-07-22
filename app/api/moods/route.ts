@@ -1,0 +1,89 @@
+import { NextRequest } from 'next/server';
+import { query, queryOne } from '@/lib/db';
+import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
+import { classifyMood, moderateContent } from '@/lib/ai';
+import { v4 as uuid } from 'uuid';
+import { addHours } from 'date-fns';
+
+export async function POST(req: NextRequest) {
+  try {
+    const payload = authenticateRequest(req);
+    const body = await req.json();
+    const { text } = body;
+
+    // Validation
+    if (!text || typeof text !== 'string') {
+      return errorResponse('Mood text is required', 400);
+    }
+
+    const trimmedText = text.trim();
+    if (trimmedText.length === 0 || trimmedText.length > 180) {
+      return errorResponse('Mood must be between 1 and 180 characters', 400);
+    }
+
+    // Moderate content
+    const moderation = await moderateContent(trimmedText);
+    if (!moderation.safe) {
+      return errorResponse(`Content violates guidelines: ${moderation.reason}`, 400);
+    }
+
+    // Classify vibe
+    const vibe = await classifyMood(trimmedText);
+
+    // Extract tags (words starting with #)
+    const tags = (trimmedText.match(/#\w+/g) || []).map((tag) => tag.slice(1));
+
+    // Create mood
+    const moodId = uuid();
+    const expiresAt = addHours(new Date(), 24);
+
+    await query(
+      `INSERT INTO moods (id, user_id, text, vibe, tags, created_at, expires_at, moderated)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7)`,
+      [moodId, payload.id, trimmedText, vibe, tags, expiresAt, true]
+    );
+
+    const mood = await queryOne('SELECT * FROM moods WHERE id = $1', [moodId]);
+    return successResponse(mood, 201);
+  } catch (error: any) {
+    return handleApiError(error, 'Post mood error');
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const payload = authenticateRequest(req);
+    const searchParams = new URL(req.url).searchParams;
+    const city = searchParams.get('city');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+
+    let moods;
+    if (city) {
+      moods = await query(
+        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
+                u.first_name, u.age, u.city
+         FROM moods m
+         JOIN users u ON m.user_id = u.id
+         WHERE u.city = $1 AND m.expires_at > NOW() AND m.flagged = FALSE
+         ORDER BY m.created_at DESC
+         LIMIT $2`,
+        [city, limit]
+      );
+    } else {
+      moods = await query(
+        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.created_at, m.expires_at,
+                u.first_name, u.age, u.city
+         FROM moods m
+         JOIN users u ON m.user_id = u.id
+         WHERE m.expires_at > NOW() AND m.flagged = FALSE AND m.user_id != $1
+         ORDER BY m.created_at DESC
+         LIMIT $2`,
+        [payload.id, limit]
+      );
+    }
+
+    return successResponse({ moods, count: moods.length });
+  } catch (error: any) {
+    return handleApiError(error, 'Get moods error');
+  }
+}
