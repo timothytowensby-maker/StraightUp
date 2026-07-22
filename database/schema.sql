@@ -4,6 +4,10 @@ CREATE TABLE IF NOT EXISTS users (
   first_name TEXT NOT NULL,
   age INT NOT NULL CHECK (age >= 18 AND age <= 120),
   city TEXT NOT NULL,
+  latitude DOUBLE PRECISION,
+  longitude DOUBLE PRECISION,
+  share_location BOOLEAN NOT NULL DEFAULT FALSE,
+  location_updated_at TIMESTAMP,
   energy_traits TEXT[] NOT NULL DEFAULT '{}',
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
@@ -13,6 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_city ON users(city);
+CREATE INDEX idx_users_share_location ON users(share_location, location_updated_at DESC);
+CREATE INDEX idx_users_coordinates ON users(latitude, longitude);
 
 -- Moods table
 CREATE TABLE IF NOT EXISTS moods (

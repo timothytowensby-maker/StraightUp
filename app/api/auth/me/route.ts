@@ -5,7 +5,13 @@ import { queryOne } from '@/lib/db';
 export async function GET(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
-    const user = await queryOne('SELECT id, first_name, age, city, energy_traits, email, created_at, updated_at FROM users WHERE id = $1', [payload.id]);
+    const user = await queryOne(
+      `SELECT id, first_name, age, city, latitude, longitude, share_location, location_updated_at,
+              energy_traits, email, created_at, updated_at
+       FROM users
+       WHERE id = $1`,
+      [payload.id]
+    );
 
     if (!user) {
       return successResponse({ error: 'User not found' }, 404);

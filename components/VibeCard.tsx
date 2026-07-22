@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Vibe } from '@/lib/types';
-import { getVibeEmoji, getVibeColor } from '@/lib/vibes';
+import { getVibeEmoji } from '@/lib/vibes';
 
 interface VibeCardProps {
   text: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Message } from '@/lib/types';
 
@@ -13,19 +13,16 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (matchId) {
-      fetchMessages();
-      const interval = setInterval(fetchMessages, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [matchId]);
-
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
+      if (!matchId) {
+        setLoading(false);
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/messages?match_id=${matchId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: 'Bearer ' + token },
       });
       const data = await response.json();
       setMessages(data.messages || []);
@@ -34,7 +31,20 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!matchId) {
+      return undefined;
+    }
+
+    void fetchMessages();
+    const interval = setInterval(() => {
+      void fetchMessages();
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [fetchMessages, matchId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,14 +57,14 @@ export default function Messages() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({ match_id: matchId, text: newMessage }),
       });
 
       if (response.ok) {
         setNewMessage('');
-        fetchMessages();
+        void fetchMessages();
       }
     } catch (err: any) {
       setError(err.message);

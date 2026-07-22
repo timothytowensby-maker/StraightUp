@@ -7,6 +7,10 @@ export interface User {
   first_name: string;
   age: number;
   city: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  share_location?: boolean;
+  location_updated_at?: string | null;
   energy_traits: EnergyTrait[];
   email: string;
   created_at: string;
@@ -23,6 +27,12 @@ export interface Mood {
   expires_at: string;
   moderated: boolean;
   flagged: boolean;
+  first_name?: string;
+  age?: number;
+  city?: string;
+  distance_km?: number | null;
+  relative_x?: number | null;
+  relative_y?: number | null;
 }
 
 export interface Resonate {
@@ -40,6 +50,10 @@ export interface Match {
   expires_at: string;
   extended_by_a: boolean;
   extended_by_b: boolean;
+  matched_user_name?: string;
+  matched_user_age?: number;
+  matched_user_city?: string;
+  matched_user_traits?: string[];
 }
 
 export interface Message {
@@ -49,6 +63,7 @@ export interface Message {
   text: string;
   created_at: string;
   read: boolean;
+  first_name?: string;
 }
 
 export interface AuthResponse {

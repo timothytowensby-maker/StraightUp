@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useMutation } from '@/hooks/useMutation';
 
 const VIBE_PROMPTS = [
   "What's something you wish people asked you more?",

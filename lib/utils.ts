@@ -48,7 +48,7 @@ export function validateEmail(email: string): boolean {
 }
 
 export function validatePassword(password: string): boolean {
-  return password && password.length >= 6;
+  return typeof password === 'string' && password.length >= 6;
 }
 
 export async function handleApiError(error: unknown, defaultMessage: string) {
