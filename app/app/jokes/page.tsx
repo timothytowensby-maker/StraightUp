@@ -11,6 +11,7 @@ import { CategoryFilter } from '@/components/CategoryFilter';
 import { JokeShare } from '@/components/JokeShare';
 
 const LOCAL_CACHE_KEY = 'straightup:joke-cache';
+const CATEGORY_CHANGE_DEBOUNCE_MS = 250;
 
 interface JokeResponse {
   joke: JokePayload;
@@ -91,7 +92,7 @@ export default function JokesPage() {
   useEffect(() => {
     const timeout = setTimeout(() => {
       fetchJoke(selectedCategory);
-    }, 250);
+    }, CATEGORY_CHANGE_DEBOUNCE_MS);
 
     return () => clearTimeout(timeout);
   }, [fetchJoke, selectedCategory]);
