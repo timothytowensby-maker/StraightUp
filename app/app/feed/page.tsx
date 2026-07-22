@@ -83,7 +83,7 @@ export default function Feed() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <div className="card mb-8">
-        <h2 className="text-xl font-bold mb-4">What\'s your vibe?</h2>
+        <h2 className="text-xl font-bold mb-4">What&apos;s your vibe?</h2>
         <form onSubmit={handlePostMood} className="space-y-4">
           <textarea
             className="input h-20 resize-none"
