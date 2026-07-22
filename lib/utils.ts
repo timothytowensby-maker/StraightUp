@@ -59,3 +59,11 @@ export async function handleApiError(error: unknown, defaultMessage: string) {
   console.error(defaultMessage, error);
   return errorResponse(defaultMessage, 500);
 }
+
+export function getErrorMessage(error: unknown, fallback = 'Unexpected error') {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+}

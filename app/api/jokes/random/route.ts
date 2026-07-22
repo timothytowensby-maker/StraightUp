@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
+import { authenticateRequest, errorResponse, getErrorMessage, handleApiError, successResponse } from '@/lib/utils';
 import { getRandomJokeForUser, validateCategory } from '@/lib/joke-service';
 
 export async function GET(req: NextRequest) {
@@ -11,12 +11,13 @@ export async function GET(req: NextRequest) {
 
     const result = await getRandomJokeForUser(payload.id, category);
     return successResponse(result);
-  } catch (error: any) {
-    if (error.message === 'Invalid joke category') {
-      return errorResponse(error.message, 400);
+  } catch (error: unknown) {
+    const message = getErrorMessage(error, 'Get random joke error');
+    if (message === 'Invalid joke category') {
+      return errorResponse(message, 400);
     }
-    if (error.message?.includes('Unable to load a joke')) {
-      return errorResponse(error.message, 503);
+    if (message.includes('Unable to load a joke')) {
+      return errorResponse(message, 503);
     }
     return handleApiError(error, 'Get random joke error');
   }

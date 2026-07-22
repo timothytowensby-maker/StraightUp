@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     );
 
     return successResponse({ favorites });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Get favorite jokes error');
   }
 }

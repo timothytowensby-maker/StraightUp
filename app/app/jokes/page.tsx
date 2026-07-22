@@ -9,6 +9,7 @@ import { JokeLoader } from '@/components/JokeLoader';
 import { JokeReaction } from '@/components/JokeReaction';
 import { CategoryFilter } from '@/components/CategoryFilter';
 import { JokeShare } from '@/components/JokeShare';
+import { getErrorMessage } from '@/lib/utils';
 
 const LOCAL_CACHE_KEY = 'straightup:joke-cache';
 const CATEGORY_CHANGE_DEBOUNCE_MS = 250;
@@ -75,8 +76,8 @@ export default function JokesPage() {
         localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ joke: response.joke, timestamp: Date.now() }));
         prefetchNextJoke(category);
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load joke');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load joke'));
       if (cachedJoke) {
         setJoke(cachedJoke);
       }
@@ -127,8 +128,8 @@ export default function JokesPage() {
     if (!joke) return;
     try {
       await apiCall('/api/jokes/favorite', 'POST', { joke });
-    } catch (err: any) {
-      setError(err.message || 'Unable to save favorite');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to save favorite'));
     }
   };
 
@@ -143,8 +144,8 @@ export default function JokesPage() {
         reaction,
       });
       setError('');
-    } catch (err: any) {
-      setError(err.message || 'Unable to save reaction');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Unable to save reaction'));
     } finally {
       setReactionPending(false);
     }

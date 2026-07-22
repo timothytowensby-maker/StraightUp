@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     );
 
     return successResponse({ message: 'Joke saved to favorites' }, 201);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Favorite joke error');
   }
 }

@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     const payload = authenticateRequest(req);
     const categories = await listJokeCategories(payload.id);
     return successResponse(categories);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Get joke categories error');
   }
 }

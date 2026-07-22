@@ -37,11 +37,11 @@ function shouldUseSafeMode(vibe?: Vibe | null): boolean {
   return vibe === 'calm' || vibe === 'curious' || vibe === 'flirty';
 }
 
-async function fetchWithRetry(url: string, retries = 3): Promise<JokeApiResponse> {
+async function fetchWithRetry(url: string, maxRetries = 3): Promise<JokeApiResponse> {
   let attempt = 0;
   let waitMs = 250;
 
-  while (attempt < retries) {
+  while (attempt < maxRetries) {
     try {
       const response = await fetch(url, { cache: 'no-store' });
       if (!response.ok) {
@@ -56,7 +56,7 @@ async function fetchWithRetry(url: string, retries = 3): Promise<JokeApiResponse
       return payload;
     } catch (error) {
       attempt += 1;
-      if (attempt >= retries) {
+      if (attempt >= maxRetries) {
         throw error;
       }
       await delay(waitMs);

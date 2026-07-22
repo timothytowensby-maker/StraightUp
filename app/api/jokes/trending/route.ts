@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     );
 
     return successResponse({ trending });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Get trending jokes error');
   }
 }

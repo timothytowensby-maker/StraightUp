@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     return successResponse({ message: 'Reaction saved' }, 201);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, 'Save joke reaction error');
   }
 }
