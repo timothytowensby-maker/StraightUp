@@ -53,6 +53,7 @@ export default function Feed() {
   } = useLocation();
 
   const nearbyFeed = useNearbyFeed(viewerLocation, distanceMiles, mode === 'nearby');
+  const refreshNearbyFeed = nearbyFeed.refresh;
 
   const fetchCityMoods = useCallback(
     async (options?: CityFeedOptions) => {
@@ -188,9 +189,10 @@ export default function Feed() {
       setMode('city');
       setLocationSharing(false);
       setLocationStatus(statusMessage);
+      await refreshNearbyFeed(null);
       await fetchCityMoods({ city: cityFilter });
     },
-    [cityFilter, fetchCityMoods]
+    [cityFilter, fetchCityMoods, refreshNearbyFeed]
   );
 
   const enableNearbyWithPosition = useCallback(
@@ -215,7 +217,7 @@ export default function Feed() {
 
   const refreshCurrentFeed = async () => {
     if (mode === 'nearby' && viewerLocation) {
-      await nearbyFeed.refresh(viewerLocation);
+      await refreshNearbyFeed(viewerLocation);
       return;
     }
 
@@ -322,6 +324,7 @@ export default function Feed() {
     if (!viewerLocation) {
       setLocationSharing(false);
       setLocationStatus('Location sharing paused. Using your city feed.');
+      await refreshNearbyFeed(null);
       await fetchCityMoods({ city: cityFilter });
       return;
     }
@@ -332,6 +335,7 @@ export default function Feed() {
       setViewerLocation(null);
       setLocationSharing(false);
       setLocationStatus('Location sharing paused. Using your city feed.');
+      await refreshNearbyFeed(null);
       await fetchCityMoods({ city: cityFilter });
     } catch (pauseError: unknown) {
       setError(pauseError instanceof Error ? pauseError.message : 'Unable to pause location sharing');

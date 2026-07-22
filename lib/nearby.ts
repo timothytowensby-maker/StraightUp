@@ -54,8 +54,8 @@ export function parseNearbyDistanceMiles(value: string | null) {
     return numericValue;
   }
 
-  // When the request sends rounded meters instead of miles, map only the supported rounded meter
-  // values back to their matching mile options so the server does not accept arbitrary radii.
+  // Accept either the supported mile values directly or their supported rounded meter equivalents so
+  // the server stays strict about allowed radii while still handling the client query format.
   const matchedDistance = ALLOWED_NEARBY_DISTANCE_MILES.find(
     (distanceMiles) =>
       Math.abs(numericValue - milesToQueryMeters(distanceMiles)) <= DISTANCE_MATCH_EPSILON_METERS

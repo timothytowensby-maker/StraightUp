@@ -47,7 +47,7 @@ export function useNearbyFeed(
 
   const refresh = useCallback(
     async (nextCoords?: LocationCoords | null) => {
-      const targetCoords = nextCoords ?? coords;
+      const targetCoords = nextCoords === undefined ? coords : nextCoords;
 
       if (!enabled || !targetCoords) {
         setData(null);
