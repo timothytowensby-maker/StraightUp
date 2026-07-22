@@ -4,6 +4,12 @@ const nextConfig = {
   swcMinify: true,
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'media.giphy.com',
+      },
+    ],
   },
 };
 

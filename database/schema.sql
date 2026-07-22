@@ -87,3 +87,45 @@ CREATE TABLE IF NOT EXISTS moderation_flags (
 
 CREATE INDEX idx_moderation_flags_created_at ON moderation_flags(created_at DESC);
 CREATE INDEX idx_moderation_flags_content ON moderation_flags(content_type, content_id);
+
+-- Jokes cache table
+CREATE TABLE IF NOT EXISTS jokes_cache (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  external_id TEXT UNIQUE NOT NULL,
+  category TEXT NOT NULL,
+  joke_type TEXT NOT NULL CHECK (joke_type IN ('single', 'twopart')),
+  setup TEXT,
+  delivery TEXT,
+  joke TEXT,
+  safe BOOLEAN DEFAULT TRUE,
+  source TEXT NOT NULL DEFAULT 'jokeapi',
+  fetched_at TIMESTAMP DEFAULT NOW(),
+  expires_at TIMESTAMP NOT NULL
+);
+
+CREATE INDEX idx_jokes_cache_category ON jokes_cache(category);
+CREATE INDEX idx_jokes_cache_expires_at ON jokes_cache(expires_at);
+
+-- User joke preferences
+CREATE TABLE IF NOT EXISTS user_joke_preferences (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  PRIMARY KEY (user_id, category)
+);
+
+CREATE INDEX idx_user_joke_preferences_user ON user_joke_preferences(user_id);
+
+-- Joke reactions and favorites
+CREATE TABLE IF NOT EXISTS joke_reactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joke_external_id TEXT NOT NULL,
+  category TEXT NOT NULL,
+  reaction TEXT NOT NULL CHECK (reaction IN ('like', 'dislike', 'favorite')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (user_id, joke_external_id, reaction)
+);
+
+CREATE INDEX idx_joke_reactions_joke ON joke_reactions(joke_external_id);
+CREATE INDEX idx_joke_reactions_user ON joke_reactions(user_id);
