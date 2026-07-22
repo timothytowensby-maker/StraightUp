@@ -15,7 +15,9 @@ export type LocationErrorCode =
   | 'unknown'
   | null;
 
+// Maximum age in milliseconds for reusing a cached GPS reading.
 const GPS_CACHE_MAX_AGE_MS = 60000;
+// Maximum time in milliseconds to wait for a GPS response.
 const GPS_REQUEST_TIMEOUT_MS = 10000;
 
 function getLocationErrorDetails(error: GeolocationPositionError | null) {

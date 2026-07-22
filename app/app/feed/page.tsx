@@ -8,8 +8,7 @@ import { useLocation, type LocationCoords } from '@/hooks/useLocation';
 import { useNearbyFeed } from '@/hooks/useNearbyFeed';
 import {
   DEFAULT_NEARBY_DISTANCE_MILES,
-  kilometersToMiles,
-  normalizeNearbyDistanceMiles,
+  formatDistanceMilesFromKilometers,
 } from '@/lib/nearby';
 import { Mood } from '@/lib/types';
 
@@ -388,7 +387,7 @@ export default function Feed() {
             <p className="mb-2 text-sm font-medium text-vibe-300">Nearby distance</p>
             <NearbyDistanceSelector
               value={distanceMiles}
-              onChange={(nextDistanceMiles) => setDistanceMiles(normalizeNearbyDistanceMiles(nextDistanceMiles))}
+              onChange={setDistanceMiles}
               disabled={feedLoading && mode === 'nearby'}
             />
           </div>
@@ -475,10 +474,7 @@ export default function Feed() {
           </div>
         ) : (
           displayedMoods.map((mood) => {
-            const distanceAway =
-              mode === 'nearby' && mood.distance_km != null
-                ? `${kilometersToMiles(mood.distance_km).toFixed(1)} miles away`
-                : null;
+            const distanceAway = mode === 'nearby' ? formatDistanceMilesFromKilometers(mood.distance_km) : null;
 
             return (
               <div key={mood.id} className="card">

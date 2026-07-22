@@ -23,6 +23,14 @@ export function kilometersToMiles(distanceKilometers: number) {
   return distanceKilometers / KILOMETERS_PER_MILE;
 }
 
+export function formatDistanceMilesFromKilometers(distanceKilometers: number | null | undefined) {
+  if (distanceKilometers == null) {
+    return '0.0 miles away';
+  }
+
+  return `${kilometersToMiles(distanceKilometers).toFixed(1)} miles away`;
+}
+
 export function isNearbyDistanceMiles(value: number): value is NearbyDistanceMiles {
   return ALLOWED_NEARBY_DISTANCE_MILES.includes(value as NearbyDistanceMiles);
 }

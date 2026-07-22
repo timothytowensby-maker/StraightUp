@@ -1,6 +1,6 @@
 'use client';
 
-import { kilometersToMiles, milesToKilometers } from '@/lib/nearby';
+import { formatDistanceMilesFromKilometers, milesToKilometers } from '@/lib/nearby';
 import { Mood, Vibe } from '@/lib/types';
 
 const vibeMarkerClasses: Record<Vibe, string> = {
@@ -59,6 +59,7 @@ export default function NearbyMoodMap({
         {moods.map((mood) => {
           const relativeX = mood.relative_x ?? 0;
           const relativeY = mood.relative_y ?? 0;
+          const distanceLabel = formatDistanceMilesFromKilometers(mood.distance_km);
           const left =
             50 +
             clamp(
@@ -84,7 +85,7 @@ export default function NearbyMoodMap({
                 vibeMarkerClasses[mood.vibe]
               } ${isActive ? 'scale-110 ring-4 ring-vibe-300/40' : ''}`}
               style={{ left: `${left}%`, top: `${top}%` }}
-              title={`${mood.first_name ?? 'Unknown user'} • ${((mood.distance_km && kilometersToMiles(mood.distance_km)) || 0).toFixed(1)} miles away`}
+              title={`${mood.first_name ?? 'Unknown user'} • ${distanceLabel}`}
             >
               {(mood.first_name ?? '?').slice(0, 1).toUpperCase()}
             </button>

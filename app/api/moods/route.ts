@@ -71,14 +71,17 @@ export async function GET(req: NextRequest) {
     const legacyRadiusKm = parseInt(searchParams.get('radius_km') || '25', 10);
     const hasDistanceParam = searchParams.has('distance');
     const distanceMiles = parseNearbyDistanceMiles(searchParams.get('distance'));
-    let radiusKm = 25;
-    let maxDistanceMeters = radiusKm * 1000;
+    let radiusKm: number;
+    let maxDistanceMeters: number;
 
     if (hasDistanceParam) {
       radiusKm = milesToKilometers(distanceMiles);
       maxDistanceMeters = milesToQueryMeters(distanceMiles);
     } else if (Number.isFinite(legacyRadiusKm)) {
       radiusKm = Math.min(Math.max(legacyRadiusKm, 1), 100);
+      maxDistanceMeters = radiusKm * 1000;
+    } else {
+      radiusKm = 25;
       maxDistanceMeters = radiusKm * 1000;
     }
 
