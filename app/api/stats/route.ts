@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/stream';
+import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { authenticateRequest, successResponse, handleApiError } from '@/lib/utils';
 

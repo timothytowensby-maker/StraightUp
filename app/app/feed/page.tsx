@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import NearbyMoodMap from '@/components/NearbyMoodMap';
 import { Mood } from '@/lib/types';
 
@@ -31,53 +31,9 @@ export default function Feed() {
   const [locationStatus, setLocationStatus] = useState('Using your city feed.');
   const [selectedMoodId, setSelectedMoodId] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    initializeFeed();
-  }, []);
-
-  useEffect(() => {
-    if (mode === 'nearby' && viewerLocation) {
-      void fetchMoods({
-        mode: 'nearby',
-        latitude: viewerLocation.latitude,
-        longitude: viewerLocation.longitude,
-        radiusKm,
-      });
-    }
-  }, [mode, radiusKm, viewerLocation]);
-
   const getToken = () => localStorage.getItem('token');
 
-  const initializeFeed = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const token = getToken();
-
-      if (!token) {
-        setError('Please sign in again.');
-        return;
-      }
-
-      const response = await fetch('/api/auth/me', {
-        headers: { Authorization: `****** },
-      });
-      const profile = (await response.json()) as ViewerProfile;
-      const nextCity = profile.city || '';
-
-      setCityFilter(nextCity);
-      setLocationSharing(Boolean(profile.share_location));
-      setLocationStatus(nextCity ? `Using ${nextCity} as your fallback city feed.` : 'Using the global feed.');
-
-      await fetchMoods({ mode: 'city', city: nextCity });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load your feed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMoods = async (options?: FetchMoodOptions) => {
+  const fetchMoods = useCallback(async (options?: FetchMoodOptions) => {
     try {
       setLoading(true);
       setError('');
@@ -100,7 +56,7 @@ export default function Feed() {
       }
 
       const response = await fetch(`/api/moods${params.toString() ? `?${params.toString()}` : ''}`, {
-        headers: { Authorization: `****** },
+        headers: { Authorization: 'Bearer ' + token },
       });
       const data = await response.json();
 
@@ -117,7 +73,51 @@ export default function Feed() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cityFilter, mode, radiusKm]);
+
+  const initializeFeed = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const token = getToken();
+
+      if (!token) {
+        setError('Please sign in again.');
+        return;
+      }
+
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      const profile = (await response.json()) as ViewerProfile;
+      const nextCity = profile.city || '';
+
+      setCityFilter(nextCity);
+      setLocationSharing(Boolean(profile.share_location));
+      setLocationStatus(nextCity ? `Using ${nextCity} as your fallback city feed.` : 'Using the global feed.');
+
+      await fetchMoods({ mode: 'city', city: nextCity });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load your feed');
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchMoods]);
+
+  useEffect(() => {
+    void initializeFeed();
+  }, [initializeFeed]);
+
+  useEffect(() => {
+    if (mode === 'nearby' && viewerLocation) {
+      void fetchMoods({
+        mode: 'nearby',
+        latitude: viewerLocation.latitude,
+        longitude: viewerLocation.longitude,
+        radiusKm,
+      });
+    }
+  }, [fetchMoods, mode, radiusKm, viewerLocation]);
 
   const syncLocation = async (
     latitude: number,
@@ -134,7 +134,7 @@ export default function Feed() {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `******
+        Authorization: 'Bearer ' + token,
       },
       body: JSON.stringify({
         latitude,
@@ -181,7 +181,7 @@ export default function Feed() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `******
+          Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({ text: moodText }),
       });
@@ -214,7 +214,7 @@ export default function Feed() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `******
+          Authorization: 'Bearer ' + token,
         },
         body: JSON.stringify({ mood_id: moodId }),
       });

@@ -50,6 +50,10 @@ export interface Match {
   expires_at: string;
   extended_by_a: boolean;
   extended_by_b: boolean;
+  matched_user_name?: string;
+  matched_user_age?: number;
+  matched_user_city?: string;
+  matched_user_traits?: string[];
 }
 
 export interface Message {
@@ -59,6 +63,7 @@ export interface Message {
   text: string;
   created_at: string;
   read: boolean;
+  first_name?: string;
 }
 
 export interface AuthResponse {

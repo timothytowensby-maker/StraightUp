@@ -34,8 +34,8 @@ export function generateToken(user: User): string {
         email: user.email,
         name: user.first_name,
       },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRY }
+      JWT_SECRET as jwt.Secret,
+      { expiresIn: JWT_EXPIRY as jwt.SignOptions['expiresIn'] }
     );
   } catch (error) {
     console.error('Token generation error:', error);
@@ -45,7 +45,7 @@ export function generateToken(user: User): string {
 
 export function verifyToken(token: string): any {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET as jwt.Secret);
   } catch (error) {
     console.error('Token verification error:', error);
     return null;
