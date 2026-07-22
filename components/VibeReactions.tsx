@@ -13,6 +13,7 @@ interface VibeReactionsProps {
 export default function VibeReactions({ moodId, reactions = [] }: VibeReactionsProps) {
   const [items, setItems] = useState<string[]>(reactions);
   const [pendingEmoji, setPendingEmoji] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setItems(reactions);
@@ -28,13 +29,14 @@ export default function VibeReactions({ moodId, reactions = [] }: VibeReactionsP
   const handleReact = async (emoji: string) => {
     try {
       setPendingEmoji(emoji);
+      setError('');
       const response = await apiCall<{ reactions?: string[] }>('/api/moods', 'PATCH', {
         moodId,
         emoji,
       });
-      setItems(response.reactions || [...items, emoji]);
-    } catch {
-      // keep the main vibe feed usable even if a reaction fails
+      setItems((currentItems) => response.reactions || [...currentItems, emoji]);
+    } catch (reactionError: unknown) {
+      setError(reactionError instanceof Error ? reactionError.message : 'Reaction failed');
     } finally {
       setPendingEmoji(null);
     }
@@ -64,6 +66,7 @@ export default function VibeReactions({ moodId, reactions = [] }: VibeReactionsP
           {items.length} reaction{items.length === 1 ? '' : 's'} on this vibe
         </p>
       )}
+      {error && <p className="text-xs text-red-300">{error}</p>}
     </div>
   );
 }

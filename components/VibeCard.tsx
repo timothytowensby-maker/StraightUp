@@ -45,7 +45,7 @@ export function VibeCard({
   footer,
 }: VibeCardProps) {
   const buttonHandler = onResonate || onAction;
-  const hasMeta = typeof userAge === 'number' || Boolean(userCity);
+  const hasMeta = Boolean(userCity);
 
   return (
     <article className="card border border-vibe-800/80 bg-vibe-950/90 shadow-lg shadow-black/20">
@@ -60,9 +60,7 @@ export function VibeCard({
           </div>
           {hasMeta && (
             <p className="text-sm text-vibe-400">
-              {[userCity, typeof userAge === 'number' ? `${userAge}+ energy` : null]
-                .filter(Boolean)
-                .join(' • ')}
+              {userCity}
             </p>
           )}
         </div>
@@ -96,7 +94,7 @@ export function VibeCard({
               {getVibeEmoji(vibe)} {actionLabel}
             </button>
           ) : (
-            <div />
+            null
           )}
           {footer}
         </div>

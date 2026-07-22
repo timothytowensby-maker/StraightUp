@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    authenticateRequest(req);
+    const payload = authenticateRequest(req);
     const body = await req.json();
     const { moodId, emoji } = body;
 
@@ -197,16 +197,29 @@ export async function PATCH(req: NextRequest) {
       return errorResponse('A valid emoji reaction is required', 400);
     }
 
+    const mood = await queryOne(
+      'SELECT user_id FROM moods WHERE id = $1 AND expires_at > NOW()',
+      [moodId]
+    );
+
+    if (!mood) {
+      return errorResponse('Mood not found or expired', 404);
+    }
+
+    if (mood.user_id === payload.id) {
+      return errorResponse('You cannot react to your own mood', 400);
+    }
+
     const updatedMood = await queryOne(
       `UPDATE moods
        SET reactions = COALESCE(reactions, '{}') || ARRAY[$2]::text[]
-       WHERE id = $1 AND expires_at > NOW()
+       WHERE id = $1
        RETURNING reactions`,
       [moodId, emoji]
     );
 
     if (!updatedMood) {
-      return errorResponse('Mood not found or expired', 404);
+      return errorResponse('Unable to save your reaction', 400);
     }
 
     return successResponse({ success: true, reactions: updatedMood.reactions || [] });
