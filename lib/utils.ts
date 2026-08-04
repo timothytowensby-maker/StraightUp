@@ -43,6 +43,9 @@ export function authenticateRequest(req: NextRequest) {
 }
 
 export function validateEmail(email: string): boolean {
+  if (email.length > 254) {
+    return false;
+  }
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
