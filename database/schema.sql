@@ -27,11 +27,19 @@ CREATE TABLE IF NOT EXISTS moods (
   text TEXT NOT NULL,
   vibe TEXT NOT NULL CHECK (vibe IN ('flirty', 'bored', 'curious', 'venting', 'playful', 'calm', 'chaotic')),
   tags TEXT[] DEFAULT '{}',
+  reactions TEXT[] DEFAULT '{}',
+  boosted BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT NOW(),
   expires_at TIMESTAMP NOT NULL,
   moderated BOOLEAN DEFAULT FALSE,
   flagged BOOLEAN DEFAULT FALSE
 );
+
+ALTER TABLE moods
+  ADD COLUMN IF NOT EXISTS reactions TEXT[] DEFAULT '{}';
+
+ALTER TABLE moods
+  ADD COLUMN IF NOT EXISTS boosted BOOLEAN DEFAULT FALSE;
 
 CREATE INDEX idx_moods_user_id ON moods(user_id);
 CREATE INDEX idx_moods_expires_at ON moods(expires_at);

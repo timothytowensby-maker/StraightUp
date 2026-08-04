@@ -1,75 +1,63 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Message } from '@/lib/types';
+import { MessageBubble } from '@/components/MessageBubble';
+import { useMessages } from '@/hooks/useMessages';
+import { useTyping } from '@/hooks/useTyping';
 
 export default function Messages() {
   const searchParams = useSearchParams();
   const matchId = searchParams.get('matchId');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-
-  const fetchMessages = useCallback(async () => {
-    try {
-      if (!matchId) {
-        setLoading(false);
-        return;
-      }
-
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/messages?match_id=${matchId}`, {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      const data = await response.json();
-      setMessages(data.messages || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [matchId]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const { messages, loading, sending, error, sendMessage } = useMessages(matchId);
+  const { typingUsers, notifyTyping } = useTyping(matchId);
 
   useEffect(() => {
     if (!matchId) {
-      return undefined;
+      return;
     }
 
-    void fetchMessages();
-    const interval = setInterval(() => {
-      void fetchMessages();
-    }, 2000);
+    const fetchCurrentUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
 
-    return () => clearInterval(interval);
-  }, [fetchMessages, matchId]);
+      const response = await fetch('/api/auth/me', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!response.ok) return;
+      const user = await response.json();
+      setCurrentUserId(user.id || null);
+    };
+
+    void fetchCurrentUser();
+  }, [matchId]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length]);
+
+  const typingLabel = useMemo(() => {
+    if (typingUsers.length === 0) {
+      return '';
+    }
+
+    if (typingUsers.length === 1) {
+      return `${typingUsers[0].firstName} is typing...`;
+    }
+
+    return `${typingUsers.length} people are typing...`;
+  }, [typingUsers]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !matchId) return;
 
-    try {
-      setSending(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + token,
-        },
-        body: JSON.stringify({ match_id: matchId, text: newMessage }),
-      });
-
-      if (response.ok) {
-        setNewMessage('');
-        void fetchMessages();
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSending(false);
+    const sent = await sendMessage(newMessage.trim());
+    if (sent) {
+      setNewMessage('');
     }
   };
 
@@ -98,22 +86,11 @@ export default function Messages() {
           <div className="text-center text-vibe-400">No messages yet. Start the conversation!</div>
         ) : (
           messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-3 rounded-lg ${
-                msg.sender_id === localStorage.getItem('user_id')
-                  ? 'bg-vibe-500 ml-auto'
-                  : 'bg-vibe-700'
-              } max-w-xs`}
-            >
-              <p className="text-sm font-semibold text-vibe-100 mb-1">{msg.first_name}</p>
-              <p className="text-white">{msg.text}</p>
-              <p className="text-xs text-vibe-300 mt-1">
-                {new Date(msg.created_at).toLocaleTimeString()}
-              </p>
-            </div>
+            <MessageBubble key={msg.id} message={msg} isOwn={Boolean(currentUserId && msg.sender_id === currentUserId)} />
           ))
         )}
+        {typingLabel && <p className="text-xs text-vibe-300 italic">{typingLabel}</p>}
+        <div ref={bottomRef} />
       </div>
 
       <form onSubmit={handleSendMessage} className="flex gap-2">
@@ -122,7 +99,12 @@ export default function Messages() {
           placeholder="Type a message..."
           className="input flex-1"
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => {
+            setNewMessage(e.target.value);
+            if (e.target.value.trim()) {
+              notifyTyping();
+            }
+          }}
         />
         <button
           type="submit"
