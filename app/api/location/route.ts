@@ -1,13 +1,10 @@
 import { NextRequest } from 'next/server';
 import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
-import { queryOne } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
+import { parseCoordinates } from '@/lib/geospatial';
 
 // Limit rapid location writes to reduce abuse and unnecessary database churn.
 const LOCATION_UPDATE_COOLDOWN_MS = 15000;
-
-function isValidCoordinate(value: unknown, min: number, max: number) {
-  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
-}
 
 export async function PUT(req: NextRequest) {
   try {
@@ -47,7 +44,9 @@ export async function PUT(req: NextRequest) {
       return successResponse(updatedUser);
     }
 
-    if (!isValidCoordinate(latitude, -90, 90) || !isValidCoordinate(longitude, -180, 180)) {
+    const coordinates = parseCoordinates(latitude, longitude);
+
+    if (!coordinates) {
       return errorResponse('Valid latitude and longitude are required when sharing location', 400);
     }
 
@@ -60,7 +59,13 @@ export async function PUT(req: NextRequest) {
            updated_at = NOW()
        WHERE id = $3
        RETURNING share_location, location_updated_at`,
-      [latitude, longitude, payload.id]
+      [coordinates.latitude, coordinates.longitude, payload.id]
+    );
+
+    await query(
+      `INSERT INTO location_updates (user_id, latitude, longitude, share_location)
+       VALUES ($1, $2, $3, $4)`,
+      [payload.id, coordinates.latitude, coordinates.longitude, true]
     );
 
     return successResponse(updatedUser);
