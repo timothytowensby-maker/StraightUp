@@ -3,16 +3,15 @@ import { query, queryOne } from '@/lib/db';
 import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
 import { classifyMood, moderateContent } from '@/lib/ai';
 import { milesToKilometers, milesToQueryMeters, parseNearbyDistanceMiles } from '@/lib/nearby';
+import {
+  buildNearbyUsersQuery,
+  KM_PER_LATITUDE_DEGREE,
+  KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
+  parseCoordinates,
+} from '@/lib/geospatial';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
-// WGS84 mean Earth radius used for spherical distance calculations.
-const EARTH_RADIUS_KM = 6371;
-const EARTH_RADIUS_METERS = EARTH_RADIUS_KM * 1000;
-// Approximate kilometers per degree of latitude.
-const KM_PER_LATITUDE_DEGREE = 110.574;
-// Approximate kilometers per degree of longitude at the equator before latitude scaling is applied.
-const KM_PER_LONGITUDE_DEGREE_AT_EQUATOR = 111.32;
 const ALLOWED_REACTION_EMOJIS = new Set(['🔥', '😂', '❤️', '😎', '💯']);
 
 export async function POST(req: NextRequest) {
@@ -88,69 +87,24 @@ export async function GET(req: NextRequest) {
 
     let moods;
     if (nearby) {
-      const latitude = parseFloat(searchParams.get('latitude') || '');
-      const longitude = parseFloat(searchParams.get('longitude') || '');
+      const coordinates = parseCoordinates(
+        parseFloat(searchParams.get('latitude') || ''),
+        parseFloat(searchParams.get('longitude') || '')
+      );
 
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      if (!coordinates) {
         return errorResponse('Valid latitude and longitude are required for nearby mode', 400);
       }
 
-      const latitudeDelta = radiusKm / KM_PER_LATITUDE_DEGREE;
-      const longitudeDelta =
-        radiusKm /
-        Math.max(
-          Math.cos((latitude * Math.PI) / 180) * KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
-          0.1
-        );
-
       moods = await query(
-        `SELECT m.id, m.user_id, m.text, m.vibe, m.tags, m.reactions, m.boosted, m.created_at, m.expires_at,
-                u.first_name, u.age, u.city,
-                ROUND((geo.distance_meters / 1000)::numeric, 1) AS distance_km,
-                ROUND(geo.relative_x::numeric, 2) AS relative_x,
-                ROUND(geo.relative_y::numeric, 2) AS relative_y
-         FROM moods m
-         JOIN users u ON m.user_id = u.id
-         CROSS JOIN LATERAL (
-           SELECT
-                  -- Great-circle distance between the viewer and the mood owner in meters.
-                  $8 * ACOS(
-                    LEAST(
-                      1,
-                      GREATEST(
-                        -1,
-                        COS(RADIANS($1)) * COS(RADIANS(u.latitude)) * COS(RADIANS(u.longitude) - RADIANS($2)) +
-                        SIN(RADIANS($1)) * SIN(RADIANS(u.latitude))
-                      )
-                    )
-                  ) AS distance_meters,
-                  -- Approximate east/west offset in kilometers for plotting nearby markers on the map card.
-                  ((u.longitude - $2) * $9 * COS(RADIANS(($1 + u.latitude) / 2.0))) AS relative_x,
-                  -- Approximate north/south offset in kilometers for plotting nearby markers on the map card.
-                  ((u.latitude - $1) * $10) AS relative_y
-         ) geo
-         WHERE m.expires_at > NOW()
-           AND m.flagged = FALSE
-           AND m.user_id != $3
-           AND u.share_location = TRUE
-           AND u.latitude IS NOT NULL
-           AND u.longitude IS NOT NULL
-           AND u.latitude BETWEEN $1 - $4 AND $1 + $4
-           AND u.longitude BETWEEN $2 - $5 AND $2 + $5
-           AND geo.distance_meters <= $6
-         ORDER BY m.boosted DESC, geo.distance_meters ASC, m.created_at DESC
-         LIMIT $7`,
+        buildNearbyUsersQuery(limit),
         [
-          latitude,
-          longitude,
-          payload.id,
-          latitudeDelta,
-          longitudeDelta,
+         coordinates.latitude,
+         coordinates.longitude,
+         payload.id,
          maxDistanceMeters,
-          limit,
-         EARTH_RADIUS_METERS,
-          KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
-          KM_PER_LATITUDE_DEGREE,
+         KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
+         KM_PER_LATITUDE_DEGREE,
         ]
       );
     } else if (city) {
