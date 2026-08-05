@@ -1,23 +1,21 @@
 import { NextRequest } from 'next/server';
 import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
 import { queryOne } from '@/lib/db';
+import { updateLocationSchema, validateRequestBody } from '@/lib/validation';
 
 // Limit rapid location writes to reduce abuse and unnecessary database churn.
 const LOCATION_UPDATE_COOLDOWN_MS = 15000;
 
-function isValidCoordinate(value: unknown, min: number, max: number) {
-  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
-}
-
 export async function PUT(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
-    const body = await req.json();
-    const { latitude, longitude, share_location } = body;
 
-    if (typeof share_location !== 'boolean') {
-      return errorResponse('share_location must be a boolean', 400);
+    const { data: body, error: validationError } = await validateRequestBody(req, updateLocationSchema);
+    if (validationError) {
+      return errorResponse(`Validation error: ${validationError}`, 400);
     }
+
+    const { latitude, longitude, share_location } = body!;
 
     const currentUser = await queryOne(
       'SELECT location_updated_at FROM users WHERE id = $1',
@@ -47,7 +45,7 @@ export async function PUT(req: NextRequest) {
       return successResponse(updatedUser);
     }
 
-    if (!isValidCoordinate(latitude, -90, 90) || !isValidCoordinate(longitude, -180, 180)) {
+    if (latitude === undefined || longitude === undefined) {
       return errorResponse('Valid latitude and longitude are required when sharing location', 400);
     }
 

@@ -3,6 +3,7 @@ import { query, queryOne } from '@/lib/db';
 import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
 import { classifyMood, moderateContent } from '@/lib/ai';
 import { milesToKilometers, milesToQueryMeters, parseNearbyDistanceMiles } from '@/lib/nearby';
+import { createMoodSchema, validateRequestBody } from '@/lib/validation';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
@@ -18,18 +19,14 @@ const ALLOWED_REACTION_EMOJIS = new Set(['🔥', '😂', '❤️', '😎', '💯
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
-    const body = await req.json();
-    const { text } = body;
 
-    // Validation
-    if (!text || typeof text !== 'string') {
-      return errorResponse('Mood text is required', 400);
+    const { data: body, error: validationError } = await validateRequestBody(req, createMoodSchema);
+    if (validationError) {
+      return errorResponse(`Validation error: ${validationError}`, 400);
     }
 
+    const { text } = body!;
     const trimmedText = text.trim();
-    if (trimmedText.length === 0 || trimmedText.length > 180) {
-      return errorResponse('Mood must be between 1 and 180 characters', 400);
-    }
 
     // Moderate content
     const moderation = await moderateContent(trimmedText);
@@ -67,6 +64,7 @@ export async function GET(req: NextRequest) {
     const city = searchParams.get('city');
     const nearby = searchParams.get('nearby') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
     // Keep the previous kilometer parameter for compatibility while newer nearby clients send
     // the sanitized `distance` parameter in miles/meters.
     const legacyRadiusKm = parseInt(searchParams.get('radius_km') || '25', 10);
@@ -139,7 +137,7 @@ export async function GET(req: NextRequest) {
            AND u.longitude BETWEEN $2 - $5 AND $2 + $5
            AND geo.distance_meters <= $6
          ORDER BY m.boosted DESC, geo.distance_meters ASC, m.created_at DESC
-         LIMIT $7`,
+         LIMIT $7 OFFSET $11`,
         [
           latitude,
           longitude,
@@ -151,6 +149,7 @@ export async function GET(req: NextRequest) {
          EARTH_RADIUS_METERS,
           KM_PER_LONGITUDE_DEGREE_AT_EQUATOR,
           KM_PER_LATITUDE_DEGREE,
+          offset,
         ]
       );
     } else if (city) {
@@ -161,8 +160,8 @@ export async function GET(req: NextRequest) {
          JOIN users u ON m.user_id = u.id
          WHERE u.city = $1 AND m.expires_at > NOW() AND m.flagged = FALSE
          ORDER BY m.boosted DESC, m.created_at DESC
-         LIMIT $2`,
-        [city, limit]
+         LIMIT $2 OFFSET $3`,
+        [city, limit, offset]
       );
     } else {
       moods = await query(
@@ -172,12 +171,12 @@ export async function GET(req: NextRequest) {
          JOIN users u ON m.user_id = u.id
          WHERE m.expires_at > NOW() AND m.flagged = FALSE AND m.user_id != $1
          ORDER BY m.boosted DESC, m.created_at DESC
-         LIMIT $2`,
-        [payload.id, limit]
+         LIMIT $2 OFFSET $3`,
+        [payload.id, limit, offset]
       );
     }
 
-    return successResponse({ moods, count: moods.length });
+    return successResponse({ moods, count: moods.length, limit, offset, hasMore: moods.length === limit });
   } catch (error: any) {
     return handleApiError(error, 'Get moods error');
   }

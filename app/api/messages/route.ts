@@ -2,21 +2,19 @@ import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
 import { moderateContent } from '@/lib/ai';
+import { sendMessageSchema, validateRequestBody } from '@/lib/validation';
 import { v4 as uuid } from 'uuid';
 
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
-    const body = await req.json();
-    const { match_id, text } = body;
 
-    if (!match_id || !text) {
-      return errorResponse('match_id and text are required', 400);
+    const { data: body, error: validationError } = await validateRequestBody(req, sendMessageSchema);
+    if (validationError) {
+      return errorResponse(`Validation error: ${validationError}`, 400);
     }
 
-    if (typeof text !== 'string' || text.trim().length === 0) {
-      return errorResponse('Message cannot be empty', 400);
-    }
+    const { match_id, text } = body!;
 
     // Verify match exists and user is part of it
     const match = await queryOne(
@@ -54,6 +52,7 @@ export async function GET(req: NextRequest) {
     const searchParams = new URL(req.url).searchParams;
     const matchId = searchParams.get('match_id');
     const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 500);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
     if (!matchId) {
       return errorResponse('match_id query parameter is required', 400);
@@ -77,8 +76,8 @@ export async function GET(req: NextRequest) {
        JOIN users u ON m.sender_id = u.id
        WHERE m.match_id = $1
        ORDER BY m.created_at ASC
-       LIMIT $2`,
-      [matchId, limit]
+       LIMIT $2 OFFSET $3`,
+      [matchId, limit, offset]
     );
 
     // Mark as read for current user
@@ -87,7 +86,7 @@ export async function GET(req: NextRequest) {
       [matchId, payload.id]
     );
 
-    return successResponse({ messages, count: messages.length });
+    return successResponse({ messages, count: messages.length, limit, offset, hasMore: messages.length === limit });
   } catch (error: any) {
     return handleApiError(error, 'Get messages error');
   }

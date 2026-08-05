@@ -1,34 +1,30 @@
 import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
-import { successResponse, errorResponse, validateEmail, validatePassword, handleApiError } from '@/lib/utils';
+import { successResponse, errorResponse, handleApiError } from '@/lib/utils';
+import { signupLimiter, getClientIp } from '@/lib/ratelimit';
+import { signupSchema, validateRequestBody } from '@/lib/validation';
 import { v4 as uuid } from 'uuid';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { first_name, age, city, energy_traits, email, password } = body;
-
-    // Validation
-    if (!first_name || !age || !city || !email || !password) {
-      return errorResponse('Missing required fields: first_name, age, city, email, password', 400);
+    // Rate limit check
+    const ip = getClientIp(req);
+    const { success, reset } = await signupLimiter.limit(ip);
+    if (!success) {
+      return errorResponse(
+        `Too many signup attempts. Try again in ${Math.ceil((reset - Date.now()) / 1000)} seconds`,
+        429
+      );
     }
 
-    if (!validateEmail(email)) {
-      return errorResponse('Invalid email format', 400);
+    // Validate with Zod
+    const { data: body, error: validationError } = await validateRequestBody(req, signupSchema);
+    if (validationError) {
+      return errorResponse(`Validation error: ${validationError}`, 400);
     }
 
-    if (!validatePassword(password)) {
-      return errorResponse('Password must be at least 6 characters', 400);
-    }
-
-    if (age < 18 || age > 120) {
-      return errorResponse('Age must be between 18 and 120', 400);
-    }
-
-    if (!Array.isArray(energy_traits) || energy_traits.length === 0) {
-      return errorResponse('Must select at least one energy trait', 400);
-    }
+    const { first_name, age, city, energy_traits, email, password } = body!;
 
     // Check if email exists
     const existingUser = await queryOne('SELECT id FROM users WHERE email = $1', [email]);
