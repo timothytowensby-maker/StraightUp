@@ -48,6 +48,9 @@ export default function AppLayout({
             StraightUp
           </Link>
           <div className="flex items-center gap-4">
+            <Link href="/app" className="text-vibe-300 hover:text-white">
+              Map
+            </Link>
             <Link href="/app/feed" className="text-vibe-300 hover:text-white">
               Feed
             </Link>
