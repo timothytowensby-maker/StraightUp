@@ -1,18 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import BoostButton from '@/components/BoostButton';
 import NearbyDistanceSelector from '@/components/NearbyDistanceSelector';
 import NearbyMoodMap from '@/components/NearbyMoodMap';
 import NearbySkeleton from '@/components/NearbySkeleton';
+import UserProfileSidebar from '@/components/UserProfileSidebar';
 import { VibeCard } from '@/components/VibeCard';
 import { useLocation, type LocationCoords } from '@/hooks/useLocation';
 import { useNearbyFeed } from '@/hooks/useNearbyFeed';
 import {
   DEFAULT_NEARBY_DISTANCE_MILES,
   formatDistanceMilesFromKilometers,
+  milesToKilometers,
 } from '@/lib/nearby';
 import { Mood } from '@/lib/types';
+import type { NearbyUser } from '@/components/MapView';
+
+// Leaflet must not run on the server side.
+const MapView = dynamic(() => import('@/components/MapView'), { ssr: false });
 
 function getStoredToken() {
   return localStorage.getItem('token');
@@ -48,6 +55,8 @@ export default function Feed() {
   const [selectedMoodId, setSelectedMoodId] = useState<string | undefined>(undefined);
   const [viewerName, setViewerName] = useState('You');
   const [latestPostedMood, setLatestPostedMood] = useState<Mood | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [selectedMapUser, setSelectedMapUser] = useState<NearbyUser | null>(null);
 
   const {
     coords,
@@ -351,8 +360,55 @@ export default function Feed() {
     }
   };
 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') ?? '' : '';
+  const radiusKm = milesToKilometers(distanceMiles);
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div>
+      {/* Interactive map view (full screen toggle) */}
+      {showMap && token ? (
+        <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-950 border-b border-slate-800 z-10">
+            <h1 className="text-sm font-semibold text-vibe-100">Live Vibe Map</h1>
+            <button
+              type="button"
+              className="btn btn-secondary text-xs px-3 py-1.5"
+              onClick={() => setShowMap(false)}
+            >
+              ✕ Close map
+            </button>
+          </div>
+          <div className="flex-1 relative">
+            <MapView
+              token={token}
+              radiusKm={radiusKm}
+              onUserClick={(user) => setSelectedMapUser(user)}
+            />
+          </div>
+          <UserProfileSidebar
+            user={selectedMapUser}
+            token={token}
+            onClose={() => setSelectedMapUser(null)}
+          />
+        </div>
+      ) : null}
+
+      <div className="max-w-2xl mx-auto px-4 py-8">
+      {/* Map launch button */}
+      <div className="card mb-4 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-vibe-100">Live Vibe Map</h2>
+          <p className="text-sm text-vibe-400">See who&apos;s vibing near you in real‑time.</p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary whitespace-nowrap"
+          onClick={() => setShowMap(true)}
+        >
+          🗺️ Open map
+        </button>
+      </div>
+
       <div className="card mb-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
@@ -540,6 +596,7 @@ export default function Feed() {
           })
         )}
       </div>
+    </div>
     </div>
   );
 }
