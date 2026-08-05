@@ -1,6 +1,5 @@
 "use client";
 
-import React from 'react';
 
 interface AlertProps {
   type: 'error' | 'success' | 'warning' | 'info';
