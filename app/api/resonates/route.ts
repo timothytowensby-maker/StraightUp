@@ -1,18 +1,20 @@
 import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { authenticateRequest, successResponse, errorResponse, handleApiError } from '@/lib/utils';
+import { resonateSchema, validateRequestBody } from '@/lib/validation';
 import { v4 as uuid } from 'uuid';
 import { addHours } from 'date-fns';
 
 export async function POST(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
-    const body = await req.json();
-    const { mood_id } = body;
 
-    if (!mood_id) {
-      return errorResponse('mood_id is required', 400);
+    const { data: body, error: validationError } = await validateRequestBody(req, resonateSchema);
+    if (validationError) {
+      return errorResponse(`Validation error: ${validationError}`, 400);
     }
+
+    const { mood_id } = body!;
 
     // Get mood and its creator
     const mood = await queryOne('SELECT * FROM moods WHERE id = $1 AND expires_at > NOW()', [mood_id]);
@@ -79,6 +81,10 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const payload = authenticateRequest(req);
+    const searchParams = new URL(req.url).searchParams;
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
+
     const resonates = await query(
       `SELECT r.id, r.from_user, r.to_mood, r.created_at, m.text, m.vibe, u.first_name, u.city
        FROM resonates r
@@ -86,11 +92,11 @@ export async function GET(req: NextRequest) {
        JOIN users u ON m.user_id = u.id
        WHERE r.from_user = $1
        ORDER BY r.created_at DESC
-       LIMIT 50`,
-      [payload.id]
+       LIMIT $2 OFFSET $3`,
+      [payload.id, limit, offset]
     );
 
-    return successResponse({ resonates, count: resonates.length });
+    return successResponse({ resonates, count: resonates.length, limit, offset, hasMore: resonates.length === limit });
   } catch (error: any) {
     return handleApiError(error, 'Get resonates error');
   }

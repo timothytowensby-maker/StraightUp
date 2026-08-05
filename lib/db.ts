@@ -20,23 +20,23 @@ export function getPool(): Pool {
   return pool;
 }
 
-export async function query(text: string, params?: any[]) {
+export async function query<T = any>(text: string, params?: any[]): Promise<T[]> {
   try {
     const pool = getPool();
     const result = await pool.query(text, params);
-    return result.rows;
+    return result.rows as T[];
   } catch (error) {
     console.error('Database query error:', error, { text, params });
     throw error;
   }
 }
 
-export async function queryOne(text: string, params?: any[]) {
-  const results = await query(text, params);
+export async function queryOne<T = any>(text: string, params?: any[]): Promise<T | null> {
+  const results = await query<T>(text, params);
   return results[0] || null;
 }
 
-export async function queryCount(text: string, params?: any[]) {
-  const results = await query(text, params);
-  return results[0]?.count || 0;
+export async function queryCount(text: string, params?: any[]): Promise<number> {
+  const results = await query<{ count: string }>(text, params);
+  return parseInt(results[0]?.count || '0', 10);
 }
