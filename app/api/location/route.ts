@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { authenticateRequest, errorResponse, handleApiError, successResponse } from '@/lib/utils';
 import { queryOne } from '@/lib/db';
+import { broadcastLocationUpdate, getClient } from '@/lib/ws-state';
 
 // Limit rapid location writes to reduce abuse and unnecessary database churn.
 const LOCATION_UPDATE_COOLDOWN_MS = 15000;
@@ -62,6 +63,30 @@ export async function PUT(req: NextRequest) {
        RETURNING share_location, location_updated_at`,
       [latitude, longitude, payload.id]
     );
+
+    // Broadcast position update to connected WebSocket clients within range.
+    const wsClient = getClient(payload.id);
+    const firstName: string = wsClient?.firstName ?? '';
+    const vibe: string | null = wsClient?.vibe ?? null;
+    if (wsClient) {
+      wsClient.latitude = latitude as number;
+      wsClient.longitude = longitude as number;
+    }
+
+    if (firstName) {
+      const latestMood = await queryOne(
+        `SELECT text FROM moods WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1`,
+        [payload.id]
+      );
+      broadcastLocationUpdate(
+        payload.id,
+        latitude as number,
+        longitude as number,
+        firstName,
+        vibe,
+        latestMood?.text ?? null
+      );
+    }
 
     return successResponse(updatedUser);
   } catch (error) {
